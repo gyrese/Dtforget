@@ -1,0 +1,8 @@
+services:
+  viewer:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      # Le visualiseur et ses données (paroles, audio) restent sur ce PC, jamais dans l'image ni dans Git.
+      - ./spike/out/viewer:/usr/share/nginx/html:ro

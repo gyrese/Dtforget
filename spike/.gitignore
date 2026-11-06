@@ -1,0 +1,6 @@
+.venv/
+out/
+models/
+songs/
+annotations/*.txt
+__pycache__/

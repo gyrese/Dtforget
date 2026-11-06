@@ -1,0 +1,16 @@
+# Données sous droits : audio et paroles de chansons, jamais dans Git
+spike/songs/
+spike/out/
+spike/ECOUTE/
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.paroles.txt
+data.js
+
+# Environnements et modèles locaux
+spike/.venv/
+spike/models/
+__pycache__/
+*.pyc
