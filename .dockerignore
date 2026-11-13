@@ -1,0 +1,11 @@
+# L'image ne contient que le code de app/ : aucune donnée sous droits.
+*
+!app
+app/node_modules
+app/data
+app/design
+app/e2e-shots
+app/.taste-skill
+app/scripts
+app/.env
+app/*.log

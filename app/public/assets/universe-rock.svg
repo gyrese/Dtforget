@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" fill="none">
+<title>Une guitare électrique sous les lumières de la scène</title>
+<defs>
+<linearGradient id="bg" x1="0" y1="900" x2="1100" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#210e22"/><stop offset=".55" stop-color="#7f243f"/><stop offset="1" stop-color="#e87d62"/></linearGradient>
+<radialGradient id="haze"><stop stop-color="#ffca94" stop-opacity=".65"/><stop offset="1" stop-color="#ff8869" stop-opacity="0"/></radialGradient>
+<linearGradient id="beam" x1="0" y1="0" x2="0" y2="700" gradientUnits="userSpaceOnUse"><stop stop-color="#ffe0b3" stop-opacity=".35"/><stop offset="1" stop-color="#ffbf9a" stop-opacity="0"/></linearGradient>
+<linearGradient id="body" x1="420" y1="400" x2="730" y2="730" gradientUnits="userSpaceOnUse"><stop stop-color="#ffc8ac"/><stop offset=".25" stop-color="#f59884"/><stop offset=".7" stop-color="#bf355c"/><stop offset="1" stop-color="#6f2048"/></linearGradient>
+<linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff1d9"/><stop offset=".5" stop-color="#c3a5a0"/><stop offset="1" stop-color="#f1c5ae"/></linearGradient>
+<pattern id="mesh" width="12" height="12" patternUnits="userSpaceOnUse"><path d="m0 0 12 12M12 0 0 12" stroke="#a86b6a" stroke-opacity=".18" stroke-width="1"/></pattern>
+</defs>
+<path fill="url(#bg)" d="M0 0h1200v900H0z"/>
+<ellipse cx="772" cy="328" rx="539" ry="450" fill="url(#haze)"/>
+<path d="m210-60 690 800H620L160-60zM1010-60 103 812h313L1080-60z" fill="url(#beam)"/>
+<path d="M0 710 1200 600v300H0z" fill="#2b1728" opacity=".65"/>
+<path d="m720 665 365 102M600 703l156 197M450 736 367 900M980 650l220 45" stroke="#f09078" stroke-opacity=".15"/>
+<g opacity=".5"><rect x="875" y="371" width="231" height="345" rx="10" fill="#2a1724" stroke="#c27b70" stroke-width="3"/><rect x="893" y="389" width="195" height="288" rx="5" fill="url(#mesh)"/><circle cx="991" cy="472" r="58" fill="#40212e" stroke="#77505a" stroke-width="3"/><circle cx="991" cy="472" r="40" stroke="#8c5c65" stroke-width="2"/><circle cx="991" cy="604" r="58" fill="#40212e" stroke="#77505a" stroke-width="3"/><circle cx="991" cy="604" r="40" stroke="#8c5c65" stroke-width="2"/><path d="M914 695h90" stroke="#d7a393" stroke-width="4"/></g>
+<g transform="rotate(26 595 470)">
+<path d="M496 441c-38-47-85-21-81 26 5 48-57 64-48 142 9 86 71 151 163 141 82-9 159-50 158-142-1-72-64-82-61-141 3-45-49-65-65-22l-11 37h-44z" fill="#461b35" transform="translate(11 13)"/>
+<path d="M496 429c-38-47-85-21-81 26 5 48-57 64-48 142 9 86 71 151 163 141 82-9 159-50 158-142-1-72-64-82-61-141 3-45-49-65-65-22l-11 37h-44z" fill="url(#body)" stroke="#f4b3a0" stroke-width="3"/>
+<path d="M491 451c-7 50-29 66-42 104-19 57 0 102 43 116l68-17 39-91-21-91z" fill="#fbe4cb"/>
+<path d="M507 185h44v411h-44z" fill="#462a34" stroke="#d8a48b" stroke-width="3"/>
+<path d="M506 188c-25-28-18-67 1-99l39-38 23 15-17 143z" fill="#e9ad8d" stroke="#f8d4b0" stroke-width="2"/>
+<path d="m498 111-14-7m12 29-15-5m17 29-16-3m76-66 14 3m-17 25 15 2m-18 27 15 2" stroke="#ead4bd" stroke-width="8" stroke-linecap="round"/>
+<path d="M508 213h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42m-42 30h42" stroke="#d4a18b" stroke-width="2"/>
+<g fill="#e9d3c0"><circle cx="529" cy="258" r="3"/><circle cx="529" cy="318" r="3"/><circle cx="529" cy="378" r="3"/><circle cx="520" cy="438" r="3"/><circle cx="538" cy="438" r="3"/></g>
+<rect x="500" y="524" width="59" height="24" rx="3" fill="url(#metal)" stroke="#6d3b49" stroke-width="3"/><rect x="500" y="567" width="59" height="24" rx="3" fill="url(#metal)" stroke="#6d3b49" stroke-width="3"/><rect x="502" y="616" width="56" height="19" rx="2" fill="url(#metal)"/>
+<path d="M514 140v484m6-488v488m6-492v492m6-495v495m6-499v499m6-503v503" stroke="#fff1d9" stroke-opacity=".75" stroke-width="1"/>
+<circle cx="602" cy="614" r="11" fill="url(#metal)"/><circle cx="590" cy="650" r="11" fill="url(#metal)"/><path d="m555 626 30 34 29 5" stroke="#e7c9ae" stroke-width="4" stroke-linecap="round"/>
+</g>
+<path d="M650 799c102 47 236 17 206-39-24-44-105 10-21 61s197 32 250-15" stroke="#130e1c" stroke-width="8"/>
+<path d="m250 216 67-91-13 70 48-9-70 101 17-78z" fill="#ffd49e" opacity=".9"/>
+<path d="m927 223 26-36-5 28 19-4-28 40 6-31z" fill="#ffd49e" opacity=".65"/>
+<g fill="#ffd6b7" opacity=".7"><circle cx="384" cy="192" r="2"/><circle cx="1023" cy="319" r="2"/><circle cx="815" cy="166" r="3"/><circle cx="351" cy="545" r="2"/><circle cx="731" cy="266" r="2"/><circle cx="167" cy="390" r="2"/><circle cx="956" cy="118" r="2"/></g>
+<path d="M0 870c95-45 129-21 171 0 96-54 136-10 171 1 87-41 131-8 151 11 62-43 114-16 136 6 94-48 140-25 192-9 88-49 114-10 171-9 95-32 140-14 208-5v35H0z" fill="#140e20"/>
+</svg>

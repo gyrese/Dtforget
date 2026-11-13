@@ -1,3 +1,4 @@
+# Visualiseur du spike (local). Le serveur en ligne est décrit dans compose.yml.
 services:
   viewer:
     image: nginx:alpine

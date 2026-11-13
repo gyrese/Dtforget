@@ -14,3 +14,20 @@ spike/.venv/
 spike/models/
 __pycache__/
 *.pyc
+
+# App locale : donn√©es de jeu (paroles, audio) et d√©pendances
+app/data/
+app/node_modules/
+app/*.log
+
+# captures de la partie de test (locales)
+app/e2e-shots/
+
+# RÈfÈrences design et captures de validation locales
+app/design/taste-reference/
+app/e2e-shots/
+app/.taste-skill/
+
+# R√©glages locaux (adresse et jeton du serveur en ligne)
+.env
+app/.env

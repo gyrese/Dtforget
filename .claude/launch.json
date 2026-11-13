@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "dtforget", "runtimeExecutable": "node", "runtimeArgs": ["app/server.js"], "port": 3000 }
+  ]
+}

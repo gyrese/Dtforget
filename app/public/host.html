@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr" data-type="software">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Choisissez votre univers musical, invitez vos amis et retrouvez les paroles dans DtForget."><meta name="site-kind" content="gaming"><meta name="page-type" content="software"><title>N'oubliez pas les paroles · Écran hôte</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Unbounded:wght@700;900&display=swap">
+<style>
+:root{--pink:#ff3d9a;--cyan:#27e8ff;--sun:#ffd23f;--soft:#c4b5de;--ink:#14061f}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,system-ui,sans-serif;overflow:hidden}
+.stage{position:relative;width:100vw;height:100vh;min-height:620px;padding:36px 56px;display:flex;flex-direction:column;gap:22px;overflow:hidden;
+  background:radial-gradient(900px 600px at 15% 10%,#5b1b9e 0%,transparent 60%),radial-gradient(800px 600px at 95% 100%,#c2185b 0%,transparent 55%),linear-gradient(160deg,#150535 0%,#0b0420 70%)}
+.orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;pointer-events:none;animation:drift 9s ease-in-out infinite alternate}
+.o1{width:380px;height:380px;background:var(--pink);left:-120px;bottom:-140px}
+.o2{width:320px;height:320px;background:#22e6d0;right:-90px;top:-110px;opacity:.3;animation-delay:-4s}
+.disp{font-family:Unbounded,Outfit,sans-serif;font-weight:900}
+.label{font-size:16px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--soft)}
+.msg{font-size:22px;color:var(--soft)}
+.screen{position:relative;z-index:1;display:none;flex:1;flex-direction:column;gap:22px;min-height:0}
+.screen.on{display:flex}
+.btn{font-family:Unbounded,Outfit,sans-serif;font-weight:900;font-size:20px;min-height:64px;padding:0 42px;border:0;border-radius:999px;cursor:pointer;color:var(--ink);background:linear-gradient(90deg,var(--sun),#ff8a3d 55%,var(--pink));box-shadow:0 10px 30px rgba(255,61,154,.45)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible{outline:4px solid #fff;outline-offset:4px}
+.lobby{display:flex;gap:64px;flex:1;align-items:center}
+.code{font-family:Unbounded,sans-serif;font-weight:900;font-size:128px;letter-spacing:.12em;line-height:1;color:var(--sun);text-shadow:0 0 40px rgba(255,210,63,.35)}
+.players{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
+.player{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:12px 22px 12px 12px;animation:slidein .5s ease-out both}
+.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--sun),var(--pink));color:var(--ink);font-family:Unbounded,sans-serif;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:20px}
+.player b{font-size:24px;flex:1}
+.top{display:flex;justify-content:space-between;align-items:center}
+.track{height:12px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--sun),var(--pink));border-radius:999px}
+.lyrics{flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:0 20px;overflow:hidden}
+.line{font-family:Unbounded,sans-serif;font-weight:700;font-size:38px;line-height:1.5;color:rgba(255,255,255,.35);transition:color .2s}
+.line.active{color:#fff}
+.w{transition:color .15s}
+.w.sung{color:var(--sun)}
+.w.gap{color:var(--cyan)}
+.w.hole{display:inline-block;white-space:nowrap;min-width:4em;text-align:center;border-bottom:4px solid var(--cyan);color:var(--cyan);animation:blink 1s ease-in-out infinite alternate}
+.bar{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:18px 34px;font-size:22px;font-weight:700}
+.count{font-family:Unbounded,sans-serif;font-weight:900;color:var(--cyan)}
+.answer{font-family:Unbounded,sans-serif;font-weight:900;font-size:72px;line-height:1.15;color:var(--cyan)}
+.rank{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:10px 22px 10px 10px;animation:slidein .5s ease-out both}
+.rank .pos{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--sun),#ff8a3d);color:var(--ink);font-family:Unbounded,sans-serif;font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center}
+.rank .nm{font-size:24px;font-weight:800;flex:1}
+.rank .pts{font-family:Unbounded,sans-serif;font-weight:900;color:var(--cyan);font-size:20px}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,-30px) scale(1.15)}}
+@keyframes slidein{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes blink{from{opacity:.4}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<link rel="icon" href="/assets/brand-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/host-menu.css"><link rel="stylesheet" href="/host-redesign.css">
+</head>
+<body>
+<div class="stage">
+  <div class="orb o1"></div><div class="orb o2"></div>
+
+  <section class="screen on" id="s-menu">
+    <header class="menu-header"><a class="brand" href="/host.html">dt<span>forget</span></a><div class="header-actions"><span class="connection" id="connection">Connexion…</span><a class="quiet" id="add-media" hidden style="text-decoration:none" href="/atelier.html">+ Ajouter une chanson</a><button class="quiet" id="manage">Bibliothèque ↗</button><button class="quiet" id="fullscreen" aria-label="Passer en plein écran">⛶</button></div></header>
+    <div class="section-heading"><h1>Choisissez une playlist.</h1></div>
+    <div class="hero" data-theme="magic"><img class="hero-art" src="/assets/record-magic.svg" alt=""><div class="hero-shade"></div><div class="hero-copy"><h2 id="selected-title">Disney</h2><div class="hero-meta" id="selected-meta">Chargement de la collection…</div><div class="hero-actions"><button class="btn" id="explore-universe" disabled>Choisir →</button><button class="quiet" id="edit-featured" disabled>Modifier</button></div></div><span class="hero-index" aria-hidden="true">01 / 03</span></div>
+    <div class="collection-label"><span>PLAYLISTS</span><span id="library-count"></span></div>
+    <div id="styles" class="styles"></div>
+
+  </section>
+  <section class="screen" id="s-detail">
+    <div class="top"><button class="quiet back-menu">← Les univers</button></div>
+    <div class="detail-layout"><div id="detail-cover" class="detail-cover"></div><div class="detail-copy"><h1 id="detail-name"></h1><p id="detail-description"></p><div id="detail-count" class="label"></div><fieldset class="round-options"><legend>Durée de la partie</legend><label><input type="radio" name="rounds" value="3">3 manches</label><label><input type="radio" name="rounds" value="5" checked>5 manches</label><label><input type="radio" name="rounds" value="10">10 manches</label></fieldset><div class="detail-actions"><button class="btn" id="create-room">Créer le salon →</button><button class="quiet" id="edit-list">Modifier la liste</button></div><p class="hint" id="detail-hint"></p></div></div>
+    <div class="collection-label">AU PROGRAMME</div><div id="detail-songs" class="song-preview"></div>
+  </section>
+  <section class="screen" id="s-library">
+    <div class="top"><button class="quiet back-menu">← Les univers</button><button class="quiet" id="new-list">+ Nouvelle liste</button></div>
+    <div class="editor-heading"><h1>Bibliothèque</h1></div>
+    <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · sauge et forêt</option><option value="rock">Rock · brique et abricot</option><option value="mix">Mix · moutarde et olive</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Tout sélectionner</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><div id="song-picker"></div><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
+  </section>
+  <div class="notice" id="notice" role="status" hidden></div>
+  <section class="screen" id="s-lobby">
+    <div class="top"><button class="quiet" id="leave-room">← Changer d’univers</button><span class="label" id="lobby-style"></span></div>
+    <div class="lobby">
+      <div class="lobby-join">
+        <div class="label">Code du salon</div>
+        <div class="code" id="code">····</div>
+        <div style="display:flex;align-items:center;gap:22px;margin-top:8px">
+          <img id="qr" alt="QR code pour rejoindre le salon" width="180" height="180" style="border-radius:18px;background:#fff;padding:10px">
+          <div class="msg" style="font-size:18px">Scannez pour rejoindre<br><b id="join-url" style="word-break:break-all;font-size:16px"></b></div>
+        </div>
+      </div>
+      <div class="players" id="players"></div>
+    </div>
+    <div class="lobby-bottom">
+      <div class="msg" id="lobby-msg">En attente des joueurs…</div>
+      <button class="btn" id="start" disabled>Lancer la partie</button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-intro">
+    <div class="top"><div class="label" id="intro-round"></div></div>
+    <div class="intro-content">
+      <div class="disp" id="intro-title" style="font-size:72px;line-height:1.1"></div>
+      <div class="msg" id="intro-film"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-play">
+    <div class="top"><div class="label" id="play-round"></div><div class="label" id="play-film"></div></div>
+    <div class="track"><div class="fill" id="timer"></div></div>
+    <div class="lyrics" id="lyrics"></div>
+    <div class="bar"><span>Répondez sur votre téléphone</span><span class="count" id="answers">0 réponse</span></div>
+  </section>
+
+  <section class="screen" id="s-reveal">
+    <div class="top"><div class="label" id="rev-round"></div><div class="label" id="rev-film"></div></div>
+    <div class="reveal-layout">
+      <div class="reveal-answer">
+        <div class="label">Le mot était</div>
+        <div class="answer" id="rev-answer"></div>
+      </div>
+      <div class="reveal-ranking" id="rev-ranking"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-over"><div id="celebration-art" aria-hidden="true"></div><h1 class="final-heading" id="winner-title">Classement final</h1>
+    <div class="final-list" id="final"></div>
+    <div><button class="btn" id="again">Nouvelle partie</button></div>
+  </section>
+</div>
+
+<audio id="audio" preload="auto"></audio>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const socket = io();
+// l'atelier n'existe que sur le PC qui a la carte graphique, pas sur le serveur en ligne
+fetch('/api/config').then((r) => r.json()).then((c) => { $('add-media').hidden = !c.atelier; }).catch(() => {});
+const audio = $("audio");
+let clip = null;
+let lineGroups = [];
+
+function show(id) {
+  const previous = document.querySelector(".screen.on")?.id;
+  document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
+  document.dispatchEvent(new CustomEvent("host:screen", {detail:{id,previous}}));
+  if (previous !== id) { window.scrollTo(0,0); const heading = $(id).querySelector("h1, .top button, button"); if (heading) { heading.tabIndex = heading.tabIndex < 0 ? -1 : heading.tabIndex; heading.focus({preventScroll:true}); } }
+}
+
+
+
+socket.on("players:update", (list) => {
+  const box = $("players");
+  box.innerHTML = "";
+  list.forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "player";
+    const av = document.createElement("div");
+    av.className = "avatar";
+    av.textContent = p.name.charAt(0).toUpperCase();
+    const nm = document.createElement("b");
+    nm.textContent = p.name;
+    row.append(av, nm);
+    box.appendChild(row);
+  });
+  $("start").disabled = list.length < 1;
+  $("lobby-msg").textContent = list.length ? list.length + (list.length > 1 ? " joueurs prêts" : " joueur prêt") : "En attente des joueurs…";
+});
+socket.on("room:closed", () => { audio.pause(); show("s-menu"); });
+
+$("start").onclick = () => {
+  // le clic autorise la lecture audio sur cette page
+  audio.play().catch(() => {});
+  audio.pause();
+  socket.emit("host:start");
+};
+$("again").onclick = () => { socket.emit("host:leave"); show("s-menu"); };
+
+socket.on("round:intro", ({ round, total, film, title }) => {
+  $("intro-round").textContent = "Manche " + round + " / " + total;
+  $("intro-title").textContent = title;
+  $("intro-film").textContent = film;
+  $("play-round").textContent = "Manche " + round + " / " + total;
+  $("play-film").textContent = film + " · " + title;
+  $("rev-round").textContent = "Révélation · manche " + round + " / " + total;
+  show("s-intro");
+});
+
+socket.on("round:clip", (c) => {
+  $("answers").textContent = "0 réponse";
+  tick.active = null;
+  clip = c;
+  lineGroups = [];
+  let cur = [];
+  c.words.forEach((w, i) => {
+    // un même trou (plusieurs mots à trouver) reste sur une seule ligne
+    const inHole = w.gap && c.words[i - 1]?.gap;
+    if (cur.length && !inHole && (w.t - c.words[i - 1].e > 0.6 || /[.?!,]$/.test(c.words[i - 1].x))) {
+      lineGroups.push(cur);
+      cur = [];
+    }
+    cur.push(i);
+  });
+  if (cur.length) lineGroups.push(cur);
+  renderLyrics();
+  $("lyrics").scrollTop = 0;
+  audio.src = c.audio;
+  audio.currentTime = 0;
+  show("s-play");
+  audio.play().catch(() => {});
+  requestAnimationFrame(tick);
+});
+
+function renderLyrics() {
+  const box = $("lyrics");
+  box.innerHTML = "";
+  lineGroups.forEach((grp) => {
+    const L = document.createElement("div");
+    L.className = "line";
+    grp.forEach((i) => {
+      const w = clip.words[i];
+      const prev = L.lastElementChild;
+      // les tirets d'un même trou sont regroupés dans une seule case, sur une ligne
+      if (w.gap && prev && prev.dataset.gap === "1") {
+        prev.textContent += w.x + " ";
+        return;
+      }
+      const s = document.createElement("span");
+      s.dataset.t = w.t;
+      s.dataset.gap = w.gap ? "1" : "0";
+      // le mot à trouver est masqué dès le départ : jamais affiché avant la révélation
+      s.className = w.gap ? "w hole" : "w";
+      s.textContent = w.x + " "; // mot à trouver : déjà remplacé par des tirets, une par lettre
+      L.appendChild(s);
+    });
+    box.appendChild(L);
+  });
+}
+
+function tick() {
+  if (!clip || !$("s-play").classList.contains("on")) return;
+  const t = audio.currentTime;
+  const last = clip.words.length ? clip.words[clip.words.length - 1].e : 1;
+  $("timer").style.width = Math.min(100, (t / Math.max(1, last)) * 100) + "%";
+  const cut = clip.cutAt;
+  let active = null;
+  document.querySelectorAll("#lyrics .line").forEach((L) => {
+    let inLine = false;
+    L.querySelectorAll(".w").forEach((s) => {
+      const t0 = +s.dataset.t;
+      if (s.dataset.gap === "1") {
+        s.className = "w hole";
+        s.textContent = s.textContent.endsWith(" ") ? s.textContent : s.textContent + " ";
+      } else {
+        s.className = "w" + (t >= t0 ? " sung" : "");
+      }
+      if (t >= t0 - 0.2) inLine = true;
+    });
+    L.classList.toggle("active", inLine);
+    if (inLine) active = L;
+  });
+  if (active && active !== tick.active) { const box = $("lyrics"); box.scrollTo({ top: active.offsetTop - box.offsetTop - box.clientHeight / 2 + active.clientHeight / 2, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" }); tick.active = active; }
+  if (!audio.paused) requestAnimationFrame(tick);
+}
+
+socket.on("answer:open", ({ seconds }) => {
+  $("answers").textContent = "0 réponse";
+  const start = performance.now();
+  const timer = setInterval(() => {
+    const left = Math.max(0, seconds - (performance.now() - start) / 1000);
+    $("timer").style.width = (left / seconds) * 100 + "%";
+    if (left <= 0) clearInterval(timer);
+  }, 100);
+});
+socket.on("answers:count", (n) => {
+  $("answers").textContent = n + (n > 1 ? " réponses" : " réponse");
+});
+
+socket.on("reveal", ({ answer, film, title, ranking }) => {
+  audio.pause();
+  $("rev-film").textContent = film + " · " + title;
+  $("rev-answer").textContent = answer;
+  const box = $("rev-ranking");
+  box.innerHTML = "";
+  if (!ranking.length) {
+    box.innerHTML = '<div class="msg">Aucune réponse.</div>';
+  }
+  ranking.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "rank";
+    row.style.animationDelay = i * 0.12 + "s";
+    row.innerHTML = '<div class="pos"></div><div class="nm"></div><div class="pts"></div>';
+    row.querySelector(".pos").textContent = i + 1;
+    row.querySelector(".nm").textContent = r.name;
+    row.querySelector(".pts").textContent = "+" + r.points;
+    box.appendChild(row);
+  });
+  show("s-reveal");
+});
+
+socket.on("game:over", (list) => {
+  $("winner-title").textContent = list.length ? list[0].name + " gagne !" : "Classement final";
+  const box = $("final");
+  box.innerHTML = "";
+  list.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "rank";
+    row.innerHTML = '<div class="pos"></div><div class="nm"></div><div class="pts"></div>';
+    row.querySelector(".pos").textContent = i + 1;
+    row.querySelector(".nm").textContent = p.name;
+    row.querySelector(".pts").textContent = p.score + " pts";
+    box.appendChild(row);
+  });
+  show("s-over");
+});
+</script>
+<script src="/vendor/gsap/gsap.min.js"></script><script src="/vendor/animejs/anime.umd.min.js"></script><script src="/vendor/lottie/lottie_light.min.js"></script><script src="/host-menu.js"></script>
+<script src="/host-motion.js"></script>
+</body>
+</html>
+
