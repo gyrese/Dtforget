@@ -11,14 +11,19 @@ récupère le travail tout seul.
 1. **Image** : chaque push sur `main` déclenche `.github/workflows/docker-latest.yml`, qui publie
    `ghcr.io/gyrese/dtforget:latest` sur le registre de GitHub, sans secret à configurer. Le paquet est public :
    le VPS le tire sans identifiants. L'image ne contient que le code de `app/`, aucune chanson.
-2. **VPS** : copier `compose.yml`, créer à côté un fichier `.env` avec `PUBLIC_URL` (adresse publique, pour le
-   QR code), `IMPORT_TOKEN` (un long jeton secret) et `ATELIER_PIN` (code demandé pour ouvrir l'atelier), puis
-   `docker compose pull && docker compose up -d`. Le conteneur `dtforget` écoute sur le port 3000 du réseau
-   `nginx-proxy-network`. Les extraits et les listes vivent dans `./data`. Le proxy doit accepter les gros envois
-   (vidéos jusqu'à 800 Mo) et les WebSocket.
-3. **PC** : copier `app/.env.example` en `app/.env`, y mettre `PUBLISH_URL` (adresse du VPS) et `PUBLISH_TOKEN`
-   (le même jeton), puis installer l'agent une fois, depuis `app/` : `.\scripts\install-agent.ps1`.
-   Il démarre ensuite tout seul à l'ouverture de session Windows, sans fenêtre (journal : `app/data/agent.log` ;
+2. **VPS** : une commande installe tout (dossier `~/dtforget`, `compose.yml`, jeton et code d'atelier tirés
+   au hasard, démarrage) :
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/gyrese/Dtforget/main/deploy/install-vps.sh | bash -s -- dtforget.mondomaine.fr
+   ```
+
+   Elle affiche le code de l'atelier et la commande à coller sur le PC. Il reste à pointer le domaine vers
+   `dtforget:3000` dans le proxy (WebSocket activé, gros envois acceptés : vidéos jusqu'à 800 Mo).
+   Relancée sans argument, la même commande met l'image à jour en gardant les réglages.
+3. **PC** : coller dans PowerShell, depuis `app/`, la commande affichée par le VPS :
+   `.\scripts\install-agent.ps1 -Url https://… -Token …`. Elle écrit `app/.env` et installe l'agent, qui
+   démarre ensuite tout seul à l'ouverture de session Windows, sans fenêtre (journal : `app/data/agent.log` ;
    retrait : `.\scripts\install-agent.ps1 -Remove`). Pour le lancer à la main : `npm run agent`.
 
 Quand on ajoute une chanson sur l'atelier en ligne, le fichier monte au VPS, l'agent le récupère, l'analyse et

@@ -1,10 +1,12 @@
 # Installe l'agent DtForget : il demarre tout seul a l'ouverture de session Windows, sans fenetre,
 # et relie ce PC (et sa carte graphique) a l'atelier du serveur en ligne.
-#   .\scripts\install-agent.ps1            installe et demarre l'agent
-#   .\scripts\install-agent.ps1 -Remove    le retire
-param([switch]$Remove)
+#   .\scripts\install-agent.ps1 -Url https://dtforget.mondomaine.fr -Token xxxx   regle, installe et demarre
+#   .\scripts\install-agent.ps1                                                   reinstalle avec les reglages existants
+#   .\scripts\install-agent.ps1 -Remove                                           le retire
+param([string]$Url, [string]$Token, [switch]$Remove)
 
 $app = Split-Path $PSScriptRoot -Parent
+$envFile = Join-Path $app '.env'
 $vbs = Join-Path ([Environment]::GetFolderPath('Startup')) 'DtForget-agent.vbs'
 
 # arrete un agent deja lance
@@ -18,8 +20,14 @@ if ($Remove) {
   exit
 }
 
-if (-not (Test-Path (Join-Path $app '.env'))) {
-  Write-Host "Creez d'abord app\.env avec PUBLISH_URL et PUBLISH_TOKEN (modele : app\.env.example)."
+if ($Url -and $Token) {
+  # garde les autres reglages de app\.env, remplace l'adresse et le jeton
+  $keep = @()
+  if (Test-Path $envFile) { $keep = @(Get-Content $envFile | Where-Object { $_ -notmatch '^(PUBLISH_URL|PUBLISH_TOKEN)=' }) }
+  Set-Content -Path $envFile -Value ($keep + "PUBLISH_URL=$Url" + "PUBLISH_TOKEN=$Token") -Encoding ASCII
+}
+if (-not (Test-Path $envFile)) {
+  Write-Host "Indiquez le serveur : .\scripts\install-agent.ps1 -Url https://... -Token ..."
   exit 1
 }
 
