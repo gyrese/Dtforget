@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin · DtForget</title>
+<link rel="icon" href="/assets/brand-mark.svg" type="image/svg+xml">
+<style>
+:root{--canvas:#f4efdf;--paper:#fffaf0;--surface:#eae2cf;--ink:#292820;--muted:#686253;--edge:#c9bfaa;--red:#bd3827;--green:#286151}
+*{box-sizing:border-box}
+html,body{margin:0;min-width:320px;background:var(--canvas);color:var(--ink);font-family:'Trebuchet MS',Arial,sans-serif;font-size:16px;line-height:1.5}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+[hidden]{display:none!important}
+.page{max-width:760px;margin:auto;padding:24px clamp(18px,4vw,48px) 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:18px}
+.brand{font:900 34px Georgia,serif;letter-spacing:-2px;color:var(--ink);text-decoration:none}.brand span{color:var(--red)}
+h1{font:900 clamp(40px,6vw,64px)/1 Georgia,serif;letter-spacing:-3px;margin:34px 0 10px}
+h2{font:900 24px/1.2 Georgia,serif;margin:0 0 6px}
+p{margin:0 0 12px}.muted{color:var(--muted);font-size:14px}
+.card{background:var(--paper);border:1px solid var(--ink);padding:26px;margin-top:22px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+input{min-height:48px;border:1px solid var(--ink);border-radius:4px;background:#fff;padding:10px 12px;width:100%}
+.btn,.quiet{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 22px;border-radius:4px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
+.btn{background:var(--red);border:1px solid var(--red);color:var(--paper)}.btn:hover{background:#982e21}
+.quiet{background:transparent;border:1px solid var(--ink);color:var(--ink)}.quiet:hover{background:#e5dcc7}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.error{color:var(--red);font-weight:700;font-size:14px;margin:12px 0 0;min-height:1.5em}
+.code{font:13px/1.5 Consolas,monospace;background:var(--surface);border:1px solid var(--edge);padding:12px;overflow-wrap:anywhere;user-select:all}
+ol{padding-left:22px;margin:12px 0 0}ol li{margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <header><a class="brand" href="/host.html">dt<span>forget</span></a><a class="quiet" href="/host.html">← Retour au jeu</a></header>
+  <h1>Admin.</h1>
+
+  <form class="card" id="login">
+    <label>Mot de passe admin<input type="password" id="password" autocomplete="current-password" required autofocus></label>
+    <p class="error" id="error" role="alert"></p>
+    <div class="row" style="margin-top:4px"><button class="btn">Entrer</button></div>
+  </form>
+
+  <div id="space" hidden>
+    <div class="card">
+      <h2>Atelier pour Windows</h2>
+      <p class="muted">L’application prépare les chansons sur votre PC, avec sa carte graphique NVIDIA, puis les envoie à ce serveur. Au premier lancement, elle installe ses outils d’IA (environ 8 Go).</p>
+      <form id="dl" method="post" action="/api/admin/atelier.exe"><input type="hidden" name="password" id="dl-password"><div class="row"><button class="btn">Télécharger l’atelier ↓</button></div></form>
+    </div>
+    <div class="card">
+      <h2>Code de liaison</h2>
+      <p class="muted" id="link-help">À coller dans l’application au premier lancement (ou menu Réglages → Serveur en ligne).</p>
+      <div class="code" id="link"></div>
+      <div class="row"><button class="quiet" id="copy" type="button">Copier le code</button><span class="muted" id="copied" role="status"></span></div>
+    </div>
+    <div class="card">
+      <h2>Mise en route</h2>
+      <ol>
+        <li>Placez <b>DtForget-Atelier.exe</b> dans un dossier à vous (ses données seront créées à côté).</li>
+        <li>Lancez-le. Windows peut demander une confirmation : « Informations complémentaires », puis « Exécuter quand même ».</li>
+        <li>Collez le code de liaison, puis laissez l’installation se terminer.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+$('login').onsubmit = async (e) => {
+  e.preventDefault();
+  $('error').textContent = '';
+  const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('password').value }) }).catch(() => null);
+  const r = res ? await res.json().catch(() => ({})) : { error: 'Le serveur ne répond pas.' };
+  if (!res?.ok) { $('error').textContent = r.error || 'Connexion impossible.'; return; }
+  $('dl-password').value = $('password').value;
+  $('link').textContent = r.link || 'Aucun code : réglez PUBLIC_URL et IMPORT_TOKEN sur le serveur.';
+  $('copy').hidden = !r.link;
+  $('login').hidden = true; $('space').hidden = false;
+};
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('link').textContent); $('copied').textContent = 'Copié.'; }
+  catch { $('copied').textContent = 'Sélectionnez le code puis Ctrl+C.'; }
+};
+</script>
+</body>
+</html>

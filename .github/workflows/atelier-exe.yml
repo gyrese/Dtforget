@@ -1,0 +1,46 @@
+name: Atelier (exe Windows)
+
+# Construit l'application de bureau de l'atelier (.exe portable) et la publie dans la release « atelier » :
+#   https://github.com/gyrese/Dtforget/releases/download/atelier/DtForget-Atelier.exe
+on:
+  push:
+    branches: [main]
+    paths: [desktop/**, app/**, spike/*.py, spike/pyproject.toml, spike/uv.lock, .github/workflows/atelier-exe.yml]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Dépendances du serveur embarqué
+        run: npm ci --omit=dev
+        working-directory: app
+
+      - name: Dépendances de l'application
+        run: npm ci
+        working-directory: desktop
+
+      - name: Construire le .exe portable
+        run: npm run dist
+        working-directory: desktop
+
+      - name: Publier dans la release « atelier »
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: atelier
+          name: Atelier DtForget (Windows)
+          body: |
+            Application de bureau de l'atelier : préparer des chansons à trous sur son PC (carte graphique NVIDIA) et les envoyer au serveur de jeu.
+            Télécharger `DtForget-Atelier.exe`, le placer dans un dossier à soi, puis le lancer. Construit depuis ${{ github.sha }}.
+          files: desktop/dist/DtForget-Atelier.exe
+          make_latest: false

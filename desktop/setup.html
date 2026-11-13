@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'">
+<title>DtForget Atelier</title>
+<style>
+:root{--canvas:#f4efdf;--paper:#fffaf0;--surface:#eae2cf;--ink:#292820;--muted:#686253;--edge:#c9bfaa;--red:#bd3827;--green:#286151}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--canvas);color:var(--ink);font-family:'Trebuchet MS',Arial,sans-serif;font-size:16px;line-height:1.5}
+.page{max-width:720px;margin:auto;padding:40px 32px}
+.brand{font:900 34px Georgia,serif;letter-spacing:-2px;border-bottom:2px solid var(--ink);padding-bottom:18px}.brand span{color:var(--red)}
+h1{font:900 52px/1 Georgia,serif;letter-spacing:-2.5px;margin:34px 0 12px}
+p{margin:0 0 14px;max-width:60ch}.muted{color:var(--muted);font-size:14px}
+.card{background:var(--paper);border:1px solid var(--ink);padding:26px;margin-top:26px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+input{min-height:46px;border:1px solid var(--ink);border-radius:4px;background:#fff;padding:10px 12px;font:14px Consolas,monospace;width:100%}
+button{font:700 14px 'Trebuchet MS',sans-serif;min-height:50px;padding:10px 24px;border-radius:4px;border:1px solid var(--red);background:var(--red);color:var(--paper);cursor:pointer}
+button:hover:not(:disabled){background:#982e21}button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.row{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-top:22px;flex-wrap:wrap}
+.error{color:var(--red);font-weight:700;font-size:14px;margin:0;flex:1}
+.working{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
+.spin{width:18px;height:18px;border:3px solid var(--red);border-top-color:transparent;border-radius:50%;animation:spin .9s linear infinite;flex:none;margin-top:3px}
+#detail{font:13px Consolas,monospace;color:var(--muted);overflow-wrap:anywhere;min-height:3em}
+[hidden]{display:none!important}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">dt<span>forget</span></div>
+  <h1 id="title">Bienvenue dans l’atelier.</h1>
+  <p id="intro">Avant la première chanson, l’application installe ses outils d’intelligence artificielle sur ce PC : Python, PyTorch et ffmpeg, environ 8 Go. Cette étape n’a lieu qu’une fois. Une carte graphique NVIDIA est nécessaire.</p>
+
+  <form class="card" id="form">
+    <label>Code de liaison du serveur en ligne
+      <input id="code" autocomplete="off" spellcheck="false" placeholder="dtf1.…">
+    </label>
+    <p class="muted" style="margin-top:10px" id="code-help">Il est affiché à la fin de l’installation du serveur. Laissez vide pour travailler sans serveur : les extraits resteront sur ce PC.</p>
+    <div class="row"><p class="error" id="error" role="alert"></p><button id="go">Installer les outils d’IA</button></div>
+  </form>
+
+  <div class="card" id="work" hidden>
+    <div class="working"><div class="spin"></div><div><b id="step">Préparation…</b><div id="detail"></div></div></div>
+    <p class="muted" style="margin:14px 0 0">Vous pouvez laisser cette fenêtre ouverte. Si l’installation est interrompue, elle reprendra au prochain lancement.</p>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+let settingsOnly = false;
+window.atelier.state().then((s) => {
+  settingsOnly = s.installed && s.settingsOnly;
+  if (settingsOnly) {
+    $('title').textContent = 'Serveur en ligne.';
+    $('intro').textContent = s.link ? 'Cette application envoie ses extraits à ' + s.server + '. Collez un autre code de liaison pour changer de serveur, ou videz le champ pour ne plus rien envoyer.' : 'Aucun serveur n’est relié. Collez le code de liaison affiché par le serveur.';
+    $('code-help').textContent = 'L’application redémarre après l’enregistrement.';
+    $('go').textContent = 'Enregistrer';
+  } else if (s.link) {
+    $('code').placeholder = 'Déjà relié à ' + s.server + ' (laisser vide pour garder)';
+  }
+});
+window.atelier.onProgress(({ text, detail }) => { $('step').textContent = text; $('detail').textContent = detail || ''; });
+$('form').onsubmit = async (e) => {
+  e.preventDefault();
+  $('error').textContent = '';
+  const code = $('code').value.trim();
+  if (settingsOnly) { const r = await window.atelier.saveLink(code); if (!r.ok) $('error').textContent = r.error; return; }
+  $('form').hidden = true; $('work').hidden = false;
+  const r = await window.atelier.install(code || null);
+  if (!r.ok) { $('work').hidden = true; $('form').hidden = false; $('error').textContent = r.error; $('go').textContent = 'Réessayer'; }
+};
+</script>
+</body>
+</html>

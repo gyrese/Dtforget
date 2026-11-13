@@ -88,6 +88,14 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
 
   const sender = express.Router();
   let sending = false;
+  sender.get('/lists', async (_req, res) => {
+    if (!target) return res.status(400).json({ error: 'Serveur en ligne non configuré.' });
+    try {
+      const r = await fetch(target + '/api/library', { signal: AbortSignal.timeout(15000) });
+      if (!r.ok) throw new Error(String(r.status));
+      res.json((await r.json()).lists.map(({ id, name, description, theme }) => ({ id, name, description, theme })));
+    } catch { res.status(502).json({ error: 'Le serveur en ligne ne répond pas.' }); }
+  });
   sender.post('/', async (req, res) => {
     if (!target || !publishToken) return res.status(400).json({ error: 'Serveur en ligne non configuré (PUBLISH_URL et PUBLISH_TOKEN dans app/.env).' });
     if (sending) return res.status(409).json({ error: 'Un envoi est déjà en cours.' });

@@ -13,6 +13,7 @@ report_<sep>.json.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 from pathlib import Path
 
@@ -25,7 +26,7 @@ SEP_MODELS = {
     "htdemucs_ft": "htdemucs_ft.yaml",
 }
 MIN_CONTAINMENT = 0.40
-MODELS_DIR = Path(__file__).resolve().parent / "models"
+MODELS_DIR = Path(os.environ.get("DTFORGET_MODELS") or Path(__file__).resolve().parent / "models")
 
 
 def separate(wav: Path, out_dir: Path, model_key: str, device_cpu: bool) -> tuple[Path, Path]:

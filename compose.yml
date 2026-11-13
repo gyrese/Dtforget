@@ -9,7 +9,7 @@ services:
       - PUBLIC_URL=${PUBLIC_URL}
       # Jeton partagé avec le PC (PUBLISH_TOKEN dans son app/.env) : agent de traitement et envoi d'extraits
       - IMPORT_TOKEN=${IMPORT_TOKEN}
-      # Code demandé pour ouvrir l'atelier en ligne (vide = atelier ouvert à tous)
+      # Mot de passe admin : page /admin.html (téléchargement de l'atelier) et atelier en ligne
       - ATELIER_PIN=${ATELIER_PIN:-}
     networks:
       - nginx-proxy-network

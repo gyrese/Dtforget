@@ -128,7 +128,8 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
     if (m.status !== 'ready') return res.status(409).json({ error: 'Les paroles ne sont pas prêtes.' });
     if (!Number.isInteger(first) || !Number.isInteger(last) || first < 0 || last < first || last - first > 24) return res.status(400).json({ error: 'Choisissez un passage de 1 à 25 mots.' });
     if (!title || !film) return res.status(400).json({ error: 'Indiquez le titre et l’artiste (ou le film).' });
-    if (listId && !library.get().lists.some((l) => l.id === listId)) return res.status(400).json({ error: 'Cette liste n’existe plus.' });
+    const remoteList = req.body?.list && req.body.list.id === listId ? req.body.list : null;
+    if (listId && !remoteList && !library.get().lists.some((l) => l.id === listId)) return res.status(400).json({ error: 'Cette liste n’existe plus.' });
     run(id, { cmd: 'build', first, last }, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
@@ -137,7 +138,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
       const at = content.findIndex((c) => c.id === clipId);
       at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
       writeJson(contentFile, content);
-      if (listId) library.addSong(listId, songKey(clip));
+      if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
       const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, words: last - first + 1, listId: listId || null };
       return { status: 'ready', title, artist: film, clips: [...(m.clips || []).filter((c) => c.id !== clipId), summary] };
     });

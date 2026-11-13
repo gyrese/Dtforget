@@ -75,6 +75,7 @@ audio{width:100%;margin-top:18px}
 <div class="page">
   <header><a class="brand" href="/host.html">dt<span>forget</span></a><a class="quiet" href="/host.html">← Retour au jeu</a></header>
   <h1>Ajouter une chanson.</h1>
+  <p class="wait" id="app-offline" hidden>Aucun serveur en ligne n’est relié : les extraits resteront sur ce PC. Menu Réglages → Serveur en ligne.</p>
   <ol class="steps" id="steps"><li><b>1</b><span>Le média</span></li><li><b>2</b><span>Analyse</span></li><li><b>3</b><span>Les paroles</span></li><li><b>4</b><span>Le passage à deviner</span></li></ol>
 
   <section id="v-media">
@@ -127,6 +128,8 @@ audio{width:100%;margin-top:18px}
 
 <script>
 const $ = (id) => document.getElementById(id);
+let remoteLists = null; // listes du serveur en ligne (application de bureau)
+const config = fetch('/api/config').then((r) => r.json()).catch(() => ({}));
 let remote = false; // atelier en ligne : c'est le PC qui travaille pour le serveur
 const STEPS = [['upload', 'Envoi du fichier'], ['fetch', 'Transfert vers votre PC'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot'], ['return', 'Retour des résultats']];
 let id = location.hash.slice(1) || null, state = null, file = null, sel = null, anchor = null, pollTimer = null, stopAt = null, kind = 'analyze';
@@ -272,9 +275,11 @@ async function showLyrics() {
   });
   $('lyrics-source').textContent = state.lyrics?.source === 'lrclib' ? 'Paroles LRCLIB · ' + [state.lyrics.track, state.lyrics.artist].filter(Boolean).join(' · ') : 'Paroles collées à la main';
   if (!$('list').options.length) {
-    const lib = await fetch('/api/library').then((r) => r.json()).catch(() => ({ lists: [] }));
-    for (const l of lib.lists) $('list').add(new Option(l.name, l.id));
-    const last = localStorage.getItem('atelier-list'); if (last && lib.lists.some((l) => l.id === last)) $('list').value = last;
+    const cfg = await config;
+    if (cfg.app && cfg.publish) remoteLists = await fetch('/api/publish/lists').then((r) => r.ok ? r.json() : null).catch(() => null);
+    const lists = remoteLists || (await fetch('/api/library').then((r) => r.json()).catch(() => ({ lists: [] }))).lists;
+    for (const l of lists) $('list').add(new Option(l.name, l.id));
+    const last = localStorage.getItem('atelier-list'); if (last && lists.some((l) => l.id === last)) $('list').value = last;
   }
   paint(); view('lyrics', 3);
 }
@@ -309,7 +314,7 @@ player.onpause = () => { $('listen').textContent = '▶ Écouter'; document.quer
 $('build').onclick = async () => {
   localStorage.setItem('atelier-list', $('list').value);
   try {
-    await post('/' + id + '/clip', { first: sel[0], last: sel[1], title: state.title, film: state.artist, listId: $('list').value || null });
+    await post('/' + id + '/clip', { first: sel[0], last: sel[1], title: state.title, film: state.artist, listId: $('list').value || null, list: remoteLists?.find((l) => l.id === $('list').value) || undefined });
     kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
   } catch (error) { $('dock-hint').textContent = error.message; }
 };
@@ -321,6 +326,7 @@ function showDone() {
   $('done-lead').textContent = clip.words + (clip.words > 1 ? ' mots' : ' mot') + ' à deviner, coupure à ' + fmt(clip.cutAt) + ' dans l’extrait.' + (list ? ' Ajouté à la liste « ' + list + ' ».' : '');
   $('done-audio').src = clip.audio; $('publish-one-status').textContent = '';
   kind = 'analyze'; view('done', 4);
+  config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
 $('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
 
@@ -337,7 +343,11 @@ async function publish(button, status, clipIds) {
   } catch (error) { status.textContent = error.message; }
   button.disabled = false;
 }
-fetch('/api/config').then((r) => r.json()).then((c) => { remote = c.atelier === 'remote'; $('publish-all-row').hidden = !c.publish; $('publish-one').hidden = !c.publish; }).catch(() => {});
+config.then((c) => {
+  remote = c.atelier === 'remote'; $('publish-all-row').hidden = !c.publish; $('publish-one').hidden = !c.publish;
+  // dans l'application, il n'y a pas d'écran de jeu : on retire les liens qui y mènent
+  if (c.app) { document.querySelectorAll('a[href="/host.html"]').forEach((a) => { a.classList.contains('brand') ? a.href = '/atelier.html' : a.hidden = true; }); if (!c.publish) $('app-offline').hidden = false; }
+});
 $('publish-all').onclick = () => publish($('publish-all'), $('publish-all-status'));
 $('publish-one').onclick = () => publish($('publish-one'), $('publish-one-status'), [state.clips[state.clips.length - 1].id]);
 

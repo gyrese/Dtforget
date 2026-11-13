@@ -18,20 +18,35 @@ récupère le travail tout seul.
    curl -fsSL https://raw.githubusercontent.com/gyrese/Dtforget/main/deploy/install-vps.sh | bash -s -- dtforget.mondomaine.fr
    ```
 
-   Elle affiche le code de l'atelier et la commande à coller sur le PC. Il reste à pointer le domaine vers
-   `dtforget:3000` dans le proxy (WebSocket activé, gros envois acceptés : vidéos jusqu'à 800 Mo).
+   Elle affiche le mot de passe admin. Il reste à
+   pointer le domaine vers `dtforget:3000` dans le proxy (WebSocket activé, gros envois acceptés).
    Relancée sans argument, la même commande met l'image à jour en gardant les réglages.
-3. **PC** : coller dans PowerShell, depuis `app/`, la commande affichée par le VPS :
-   `.\scripts\install-agent.ps1 -Url https://… -Token …`. Elle écrit `app/.env` et installe l'agent, qui
-   démarre ensuite tout seul à l'ouverture de session Windows, sans fenêtre (journal : `app/data/agent.log` ;
-   retrait : `.\scripts\install-agent.ps1 -Remove`). Pour le lancer à la main : `npm run agent`.
+3. **PC** : ouvrir `https://<domaine>/admin.html`, entrer le mot de passe admin, télécharger l'atelier
+   pour Windows et copier le code de liaison. Lancer le .exe : il demande ce code au premier lancement, puis
+   installe seul ses outils d'IA (voir ci-dessous).
 
-Quand on ajoute une chanson sur l'atelier en ligne, le fichier monte au VPS, l'agent le récupère, l'analyse et
-renvoie les paroles alignées ; les pistes séparées restent sur le PC (`app/data/agent/`). Si le PC est éteint,
-la chanson attend et le traitement démarre dès que l'agent se reconnecte.
+## Application de bureau de l'atelier (Windows)
 
-L'atelier fonctionne aussi entièrement sur le PC (`npm start`, puis `/atelier.html`) ; « Envoyer en ligne »
-pousse alors les extraits finis vers le VPS.
+`DtForget-Atelier.exe` est un exécutable portable : l'atelier s'ouvre dans sa propre fenêtre, traite la chanson
+sur le PC (carte graphique NVIDIA obligatoire) et envoie l'extrait fini au serveur en ligne. Rien d'autre à
+installer : ni Python, ni Node, ni navigateur.
+
+- **Premier lancement** : l'application télécharge Python, PyTorch (CUDA) et ffmpeg, environ 8 Go, dans le
+  dossier `DtForget-Atelier-data` créé à côté du .exe. La première analyse télécharge en plus les modèles
+  (séparation des voix et Whisper, environ 4 Go).
+- **Liaison au serveur** : coller le code `dtf1.…` affiché sur la page `/admin.html` du serveur. Modifiable ensuite par le menu
+  Réglages → Serveur en ligne. Sans code, les extraits restent sur le PC.
+- **Listes** : l'application propose les listes du serveur en ligne ; l'extrait y est ajouté à l'envoi.
+- **Déplacer le dossier** : possible, l'environnement Python est reconstruit au lancement suivant.
+- Le .exe n'est pas signé : Windows SmartScreen demande une confirmation au premier lancement.
+
+Il est construit par `.github/workflows/atelier-exe.yml`, publié dans la release GitHub `atelier`, et relayé
+par le serveur sur `/admin.html` (mot de passe `ADMIN_PASSWORD`, ou à défaut `ATELIER_PIN`), à chaque push qui touche `desktop/`, `app/` ou le
+pipeline. En local : `npm ci --omit=dev` dans `app/`, puis `npm install && npm run dist` dans `desktop/`.
+
+L'atelier existe aussi sous deux autres formes, sans l'application : en page web sur le PC (`npm start` dans
+`app/`, puis `/atelier.html`), et en page web sur le VPS avec un agent sur le PC qui prête sa carte graphique
+(`app/scripts/install-agent.ps1 -Url … -Token …`, puis `/atelier.html` sur le VPS avec le code d'atelier).
 
 Le visualiseur du spike (extraits de `spike/out/viewer/`) se lance à part : `docker compose up`, puis
 http://localhost:8080.

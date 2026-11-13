@@ -10,6 +10,7 @@ import { createWorkshop } from './workshop.js';
 import { createPublisher } from './publish.js';
 import { createRemoteRunner } from './remote.js';
 import { createPyWorker } from './pyworker.js';
+import { createAdmin } from './admin.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -56,6 +57,8 @@ for (const method of ['post', 'put']) app[method](method === 'post' ? '/api/list
   catch (error) { res.status(400).json({ error: error.message }); }
 });
 app.use('/api/publish', publisher.sender);
+// mot de passe admin : ADMIN_PASSWORD, ou à défaut le code de l'atelier
+app.use('/api/admin', createAdmin({ password: process.env.ADMIN_PASSWORD || process.env.ATELIER_PIN || '', publicUrl: process.env.PUBLIC_URL || '', token: process.env.IMPORT_TOKEN || '' }));
 app.use('/media', express.static(CLIPS_DIR));
 app.use(express.static(join(here, "public")));
 app.use("/clips", express.static(LEGACY_CLIPS));
@@ -88,6 +91,8 @@ if (workshop) {
 app.get('/api/config', (_req, res) => res.json({
   atelier: workshop ? ATELIER : false, pin: Boolean(workshop && ATELIER_PIN), pc: remote ? remote.connected() : null,
   publish: publisher.enabled, publishTarget: publisher.enabled ? publisher.target : null,
+  // application de bureau : l'atelier est la seule page, les extraits partent tout seuls vers le serveur en ligne
+  app: process.env.APP_MODE === '1',
 }));
 
 const rooms = new Map();
@@ -313,7 +318,7 @@ io.on("connection", (socket) => {
 });
 
 const port = PORT;
-http.listen(port, () => {
+http.listen(port, process.env.HOST || undefined, () => {
   console.log(`DtForget jeu local : http://localhost:${port}`);
   console.log(`Hôte (TV) : http://localhost:${port}/host.html`);
   console.log(`Joueurs (téléphone) : http://${lanAddress()}:${port}/play.html`);

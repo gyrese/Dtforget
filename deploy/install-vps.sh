@@ -14,7 +14,7 @@ if [ ! -f .env ]; then
   if [ -z "$DOMAIN" ]; then echo "Indiquez le domaine : ... | bash -s -- dtforget.mondomaine.fr" >&2; exit 1; fi
   DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%/}"
   TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-  PIN="$(( $(od -An -N4 -tu4 /dev/urandom) % 900000 + 100000 ))"
+  PIN="$(head -c 64 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 12)"
   umask 077
   printf 'PUBLIC_URL=https://%s\nIMPORT_TOKEN=%s\nATELIER_PIN=%s\n' "$DOMAIN" "$TOKEN" "$PIN" > .env
 fi
@@ -27,7 +27,6 @@ docker compose up -d
 . ./.env
 echo
 echo "DtForget tourne. Dans le proxy, pointez ${PUBLIC_URL#https://} vers dtforget:3000 (http, WebSocket activé)."
-echo "Code de l'atelier : $ATELIER_PIN"
+echo "Mot de passe admin : $ATELIER_PIN"
 echo
-echo "Sur le PC, dans PowerShell, depuis le dossier app :"
-echo "  .\\scripts\\install-agent.ps1 -Url $PUBLIC_URL -Token $IMPORT_TOKEN"
+echo "Atelier pour Windows et code de liaison : ${PUBLIC_URL}/admin.html (avec ce mot de passe)."

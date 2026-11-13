@@ -1,0 +1,32 @@
+{
+  "name": "dtforget-atelier",
+  "productName": "DtForget Atelier",
+  "version": "0.1.0",
+  "description": "Atelier DtForget : préparer des chansons à trous sur son PC et les envoyer au serveur de jeu",
+  "private": true,
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "fetch-uv": "node fetch-uv.mjs",
+    "dist": "node fetch-uv.mjs && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "fr.dtforget.atelier",
+    "asar": false,
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.cjs", "setup.html", "package.json"],
+    "extraResources": [
+      { "from": "../app", "to": "server", "filter": ["**/*", "!data/**", "!design/**", "!e2e-shots/**", "!scripts/**", "!.taste-skill/**", "!.env", "!*.log", "!node_modules/playwright-core/**", "!node_modules/.cache/**"] },
+      { "from": "../app/node_modules", "to": "server/node_modules", "filter": ["**/*", "!playwright-core/**", "!.cache/**"] },
+      { "from": "../spike", "to": "spike", "filter": ["*.py", "pyproject.toml", "uv.lock"] },
+      { "from": "vendor/uv.exe", "to": "bin/uv.exe" }
+    ],
+    "win": { "target": "portable", "signAndEditExecutable": false },
+    "portable": { "artifactName": "DtForget-Atelier.exe" }
+  }
+}
