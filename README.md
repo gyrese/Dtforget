@@ -7,9 +7,8 @@ Prototype de pipeline pour « N'oubliez pas les paroles » : extrait d'une chans
 Le VPS héberge le jeu et sa bibliothèque ; l'atelier reste sur le PC, qui a la carte graphique.
 
 1. **Image** : chaque push sur `main` déclenche `.github/workflows/docker-latest.yml`, qui publie
-   `ghcr.io/gyrese/dtforget:latest` sur le registre de GitHub, sans secret à configurer. Après la première
-   publication, rendre le paquet public une fois (GitHub → Packages → dtforget → Package settings → Change
-   visibility) pour que le VPS puisse le tirer sans identifiants. L'image ne contient que le code de `app/`,
+   `ghcr.io/gyrese/dtforget:latest` sur le registre de GitHub, sans secret à configurer. Le paquet est public :
+   le VPS le tire sans identifiants. L'image ne contient que le code de `app/`,
    aucune chanson.
 2. **VPS** : copier `compose.yml`, créer à côté un fichier `.env` avec `PUBLIC_URL` (adresse publique, pour le
    QR code) et `IMPORT_TOKEN` (un long jeton secret), puis `docker compose pull && docker compose up -d`.
