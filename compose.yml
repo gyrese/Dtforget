@@ -1,7 +1,7 @@
 # Serveur en ligne (VPS) : docker compose pull && docker compose up -d
 services:
   dtforget:
-    image: gyrese/dtforget:latest
+    image: ghcr.io/gyrese/dtforget:latest
     container_name: dtforget
     restart: unless-stopped
     environment:
