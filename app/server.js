@@ -15,13 +15,16 @@ import { randomUUID } from 'node:crypto';
 // Adresse IPv4 du PC sur le réseau local (pour que le téléphone puisse ouvrir l'adresse du QR code).
 function lanAddress() {
   const found = [];
-  for (const list of Object.values(networkInterfaces())) {
+  for (const [name, list] of Object.entries(networkInterfaces())) {
+    // les cartes virtuelles (Hyper-V, WSL, Docker, VPN…) ont aussi des adresses 192.168.x.x, injoignables depuis un téléphone
+    if (/vEthernet|WSL|Docker|VirtualBox|VMware|Hyper-V|Loopback|Tailscale|ZeroTier|TAP|VPN/i.test(name)) continue;
     for (const net of list || []) {
-      if (net.family === 'IPv4' && !net.internal && !net.address.startsWith('169.254.')) found.push(net.address);
+      if (net.family === 'IPv4' && !net.internal && !net.address.startsWith('169.254.')) found.push({ name, address: net.address });
     }
   }
-  // préfère les réseaux privés domestiques (192.168.x.x, 10.x.x.x), ignore les adresses APIPA 169.254.x.x
-  return found.find((a) => a.startsWith('192.168.')) || found.find((a) => a.startsWith('10.')) || found[0] || 'localhost';
+  // le Wi-Fi d'abord, puis les réseaux privés domestiques (192.168.x.x, 10.x.x.x)
+  const pick = found.find((n) => /wi-?fi|wlan/i.test(n.name)) || found.find((n) => n.address.startsWith('192.168.')) || found.find((n) => n.address.startsWith('10.')) || found[0];
+  return pick ? pick.address : 'localhost';
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -290,6 +293,6 @@ const port = PORT;
 http.listen(port, () => {
   console.log(`DtForget jeu local : http://localhost:${port}`);
   console.log(`Hôte (TV) : http://localhost:${port}/host.html`);
-  console.log(`Joueurs (téléphone) : http://localhost:${port}/play.html`);
+  console.log(`Joueurs (téléphone) : http://${lanAddress()}:${port}/play.html`);
   console.log(`${CONTENT.length} extraits chargés`);
 });
