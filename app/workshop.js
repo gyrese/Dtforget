@@ -1,7 +1,5 @@
 // Atelier d'ajout de média : envoi du fichier, analyse (worker Python du spike), paroles, choix du trou, extrait.
 import express from 'express';
-import { spawn } from 'node:child_process';
-import { createInterface } from 'node:readline';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, copyFileSync, rmSync, readdirSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -12,12 +10,11 @@ const MAX_BYTES = 800 * 1024 * 1024;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const UA = 'DtForget/0.1 (jeu prive)';
 
-export function createWorkshop({ dataDir, spikeDir, content, contentFile, library }) {
+export function createWorkshop({ dataDir, content, contentFile, library, runner }) {
   const root = join(dataDir, 'workshop');
   const clipsDir = join(dataDir, 'clips');
   mkdirSync(root, { recursive: true });
   mkdirSync(clipsDir, { recursive: true });
-  const python = process.env.ATELIER_PYTHON || (process.platform === 'win32' ? join(spikeDir, '.venv', 'Scripts', 'python.exe') : join(spikeDir, '.venv', 'bin', 'python'));
   const jobs = new Map(); // id -> { step } pendant qu'un traitement tourne
   let busy = false;       // un seul traitement à la fois (une seule carte graphique)
 
@@ -27,34 +24,15 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
   const meta = (id) => readJson(join(dirOf(id), 'meta.json'));
   const saveMeta = (id, patch) => { const next = { ...meta(id), ...patch }; writeJson(join(dirOf(id), 'meta.json'), next); return next; };
 
-  function run(id, args, after) {
+  // job : { cmd: 'analyze' | 'align' | 'build', … } ; le runner l'exécute sur place (Python) ou le confie au PC (agent)
+  function run(id, job, after) {
     busy = true;
     jobs.set(id, { step: 'start' });
     saveMeta(id, { status: 'working', error: null });
-    let done = null, failure = null, stderr = '';
-    const child = spawn(python, ['-W', 'ignore', 'atelier.py', ...args], { cwd: spikeDir, env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' } });
-    createInterface({ input: child.stdout }).on('line', (line) => {
-      if (!line.startsWith('@@')) return;
-      try {
-        const msg = JSON.parse(line.slice(2));
-        if (msg.step) jobs.get(id).step = msg.step;
-        if (msg.done) done = msg;
-        if (msg.error) failure = msg.error;
-      } catch { /* ligne de journal */ }
-    });
-    child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-4000); });
-    const finish = (code) => {
-      if (!busy) return;
-      busy = false;
-      jobs.delete(id);
-      try {
-        if (code === 0 && done) return saveMeta(id, after(done));
-        console.error(`[atelier] ${args[0]} ${id} a échoué :\n${stderr}`);
-        saveMeta(id, { status: 'error', error: failure || 'Le traitement a échoué. Détails dans la console du serveur.' });
-      } catch (error) { console.error('[atelier]', error); }
-    };
-    child.on('error', (error) => { stderr += String(error); finish(1); });
-    child.on('close', finish);
+    runner.run(id, dirOf(id), job, (step) => { const j = jobs.get(id); if (j) j.step = step; })
+      .then((done) => saveMeta(id, after(done)))
+      .catch((error) => { try { saveMeta(id, { status: 'error', error: error.message || 'Le traitement a échoué.' }); } catch (e) { console.error('[atelier]', e); } })
+      .finally(() => { busy = false; jobs.delete(id); });
   }
 
   const afterLyrics = (id) => (done) => {
@@ -68,7 +46,7 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
     if (!ID.test(id) || !existsSync(join(dirOf(id), 'meta.json')) || meta(id).status !== 'working') continue;
     const m = meta(id);
     if (existsSync(join(dirOf(id), 'info.json'))) saveMeta(id, { status: existsSync(join(dirOf(id), 'words.json')) ? 'ready' : 'needs_lyrics' });
-    else if (!busy) run(id, ['analyze', dirOf(id), '--title', m.title, '--artist', m.artist], afterLyrics(id));
+    else if (!busy) run(id, { cmd: 'analyze', title: m.title, artist: m.artist }, afterLyrics(id));
     else saveMeta(id, { status: 'error', error: 'Traitement interrompu.' });
   }
 
@@ -111,7 +89,7 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
       if (!size) return fail(400, 'Fichier vide.');
       if (busy) return fail(409, 'Un autre traitement est en cours. Patientez quelques instants.');
       writeJson(join(dirOf(id), 'meta.json'), { id, file: String(req.query.name).slice(0, 200), title, artist, status: 'working', clips: [] });
-      run(id, ['analyze', dirOf(id), '--title', title, '--artist', artist], afterLyrics(id));
+      run(id, { cmd: 'analyze', title, artist }, afterLyrics(id));
       res.json({ id });
     });
   });
@@ -125,19 +103,20 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
   });
 
   router.get('/:id/audio', (req, res) => {
-    const file = join(dirOf(req.params.id), 'audio.wav');
-    existsSync(file) ? res.sendFile(file) : res.status(404).end();
+    // sur le serveur en ligne, seul l'aperçu MP3 renvoyé par le PC est disponible
+    const file = ['preview.mp3', 'audio.wav'].map((name) => join(dirOf(req.params.id), name)).find(existsSync);
+    file ? res.sendFile(file) : res.status(404).end();
   });
 
   // Autres paroles : fiche LRCLIB choisie à la main, ou texte collé
   router.post('/:id/lyrics', guardBusy, (req, res) => {
     const id = req.params.id;
     if (!existsSync(join(dirOf(id), 'info.json'))) return res.status(409).json({ error: 'L’analyse de ce média n’a pas abouti. Renvoyez le fichier.' });
-    const args = ['align', dirOf(id)];
-    if (Number.isInteger(req.body?.lrclibId)) args.push('--lrclib', String(req.body.lrclibId));
-    else if (typeof req.body?.text === 'string' && req.body.text.trim().length >= 20 && req.body.text.length < 20000) writeFileSync(join(dirOf(id), 'lyrics_input.txt'), req.body.text, 'utf8');
+    const job = { cmd: 'align' };
+    if (Number.isInteger(req.body?.lrclibId)) job.lrclibId = req.body.lrclibId;
+    else if (typeof req.body?.text === 'string' && req.body.text.trim().length >= 20 && req.body.text.length < 20000) job.text = req.body.text;
     else return res.status(400).json({ error: 'Choisissez un résultat ou collez les paroles.' });
-    run(id, args, afterLyrics(id));
+    run(id, job, afterLyrics(id));
     res.json({ ok: true });
   });
 
@@ -150,7 +129,7 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
     if (!Number.isInteger(first) || !Number.isInteger(last) || first < 0 || last < first || last - first > 24) return res.status(400).json({ error: 'Choisissez un passage de 1 à 25 mots.' });
     if (!title || !film) return res.status(400).json({ error: 'Indiquez le titre et l’artiste (ou le film).' });
     if (listId && !library.get().lists.some((l) => l.id === listId)) return res.status(400).json({ error: 'Cette liste n’existe plus.' });
-    run(id, ['build', dirOf(id), '--first', String(first), '--last', String(last)], () => {
+    run(id, { cmd: 'build', first, last }, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
@@ -165,5 +144,5 @@ export function createWorkshop({ dataDir, spikeDir, content, contentFile, librar
     res.json({ ok: true });
   });
 
-  return { router };
+  return { router, root };
 }

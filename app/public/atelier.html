@@ -37,6 +37,7 @@ textarea{min-height:150px;resize:vertical}
 .drop.over{background:#dfd5bc;border-style:solid}.drop strong{font:900 22px Georgia,serif}.drop small{color:var(--muted)}
 .drop input{position:absolute;opacity:0;width:1px;height:1px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px}.row .grow{flex:1}
+.wait{margin:18px 0 0;padding:12px 16px;border:1px solid var(--red);color:var(--red);font-weight:700;font-size:14px}
 .note{font-size:14px;color:var(--muted);margin:0;min-height:1.5em}
 .status{font-size:14px;color:var(--red);font-weight:700;min-height:1.5em;margin:0}
 .progress{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:0}
@@ -87,6 +88,7 @@ audio{width:100%;margin-top:18px}
 
   <section id="v-work" hidden>
     <div class="card"><h2 id="work-title">Analyse en cours…</h2><p class="lead" id="work-lead" style="margin:0">Vous pouvez laisser cette page ouverte : l’analyse prend en général deux à quatre minutes.</p>
+      <p class="wait" id="work-wait" hidden>En attente de votre PC. Le traitement démarrera dès qu’il sera allumé et connecté.</p>
       <div class="bar" id="upload-bar" hidden><i></i></div>
       <ul class="progress" id="progress"></ul></div>
   </section>
@@ -125,14 +127,25 @@ audio{width:100%;margin-top:18px}
 
 <script>
 const $ = (id) => document.getElementById(id);
-const STEPS = [['upload', 'Envoi du fichier'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot']];
+let remote = false; // atelier en ligne : c'est le PC qui travaille pour le serveur
+const STEPS = [['upload', 'Envoi du fichier'], ['fetch', 'Transfert vers votre PC'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot'], ['return', 'Retour des résultats']];
 let id = location.hash.slice(1) || null, state = null, file = null, sel = null, anchor = null, pollTimer = null, stopAt = null, kind = 'analyze';
 const player = $('player');
-const api = async (path, options) => {
-  const res = await fetch('/api/workshop' + path, options);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Le serveur ne répond pas.');
-  return data;
+const pin = () => { try { return localStorage.getItem('atelier-pin') || ''; } catch { return ''; } };
+function askPin() {
+  const code = prompt('Code d’accès de l’atelier :');
+  if (!code) return false;
+  try { localStorage.setItem('atelier-pin', code.trim()); } catch {}
+  return true;
+}
+const api = async (path, options = {}) => {
+  for (;;) {
+    const res = await fetch('/api/workshop' + path, { ...options, headers: { ...options.headers, 'X-Atelier-Pin': pin() } });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && askPin()) continue;
+    if (!res.ok) throw new Error(data.error || 'Le serveur ne répond pas.');
+    return data;
+  }
 };
 const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -173,11 +186,13 @@ $('media-form').onsubmit = (e) => {
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/workshop/upload?' + new URLSearchParams({ name: file.name, title: $('title').value, artist: $('artist').value }));
   xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+  xhr.setRequestHeader('X-Atelier-Pin', pin());
   xhr.upload.onprogress = (p) => { if (p.lengthComputable) $('upload-bar').firstElementChild.style.width = (100 * p.loaded / p.total) + '%'; };
   const fail = (message) => { view('media', 0); $('media-status').textContent = message; };
   xhr.onerror = () => fail('Envoi impossible. Vérifiez que le serveur tourne.');
   xhr.onload = () => {
     let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status === 401) { askPin(); return fail('Code d’accès requis. Relancez l’analyse.'); }
     if (xhr.status !== 200) return fail(data.error || 'Envoi refusé.');
     id = data.id; history.replaceState(null, '', '#' + id); $('upload-bar').hidden = true; poll();
   };
@@ -186,11 +201,15 @@ $('media-form').onsubmit = (e) => {
 
 /* 2. Analyse */
 function showWork(step) {
-  const steps = kind === 'build' ? [['build', 'Fabrication de l’extrait']] : kind === 'align' ? STEPS.filter(([k]) => k === 'lyrics_search' || k === 'align') : STEPS;
+  const all = STEPS.filter(([k]) => remote || (k !== 'fetch' && k !== 'return'));
+  const steps = kind === 'build' ? [['build', 'Fabrication de l’extrait']] : kind === 'align' ? all.filter(([k]) => k === 'lyrics_search' || k === 'align') : all;
+  const waiting = step === 'waiting_pc';
+  $('work-wait').hidden = !waiting;
+  if (step === 'pc' || step === 'start') step = kind === 'analyze' ? (remote ? 'fetch' : 'audio') : steps[0][0];
   $('work-title').textContent = kind === 'build' ? 'Fabrication de l’extrait…' : kind === 'align' ? 'Synchronisation des paroles…' : 'Analyse en cours…';
   $('work-lead').hidden = kind !== 'analyze';
   const at = Math.max(0, steps.findIndex(([k]) => k === step));
-  $('progress').replaceChildren(...steps.map(([, label], i) => { const li = document.createElement('li'); li.textContent = label; li.className = i < at ? 'done' : i === at ? 'now' : ''; return li; }));
+  $('progress').replaceChildren(...steps.map(([, label], i) => { const li = document.createElement('li'); li.textContent = label; li.className = waiting ? (kind === 'analyze' && i === 0 ? 'done' : '') : i < at ? 'done' : i === at ? 'now' : ''; return li; }));
   if ($('v-work').hidden) view('work', kind === 'build' ? 3 : kind === 'align' ? 2 : 1);
 }
 async function poll() {
@@ -318,7 +337,7 @@ async function publish(button, status, clipIds) {
   } catch (error) { status.textContent = error.message; }
   button.disabled = false;
 }
-fetch('/api/config').then((r) => r.json()).then((c) => { $('publish-all-row').hidden = !c.publish; $('publish-one').hidden = !c.publish; }).catch(() => {});
+fetch('/api/config').then((r) => r.json()).then((c) => { remote = c.atelier === 'remote'; $('publish-all-row').hidden = !c.publish; $('publish-one').hidden = !c.publish; }).catch(() => {});
 $('publish-all').onclick = () => publish($('publish-all'), $('publish-all-status'));
 $('publish-one').onclick = () => publish($('publish-one'), $('publish-one-status'), [state.clips[state.clips.length - 1].id]);
 

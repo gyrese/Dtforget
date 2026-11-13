@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { createLibrary, songKey } from './library.js';
 import { createWorkshop } from './workshop.js';
 import { createPublisher } from './publish.js';
+import { createRemoteRunner } from './remote.js';
+import { createPyWorker } from './pyworker.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -53,11 +55,7 @@ for (const method of ['post', 'put']) app[method](method === 'post' ? '/api/list
   try { res.json(library.save(req.params.id, req.body)); }
   catch (error) { res.status(400).json({ error: error.message }); }
 });
-// L'atelier a besoin du Python du spike et d'une carte graphique : il est absent de l'image du serveur en ligne.
-const workshop = process.env.ATELIER === 'off' ? null : createWorkshop({ dataDir: DATA_DIR, spikeDir: join(here, '..', 'spike'), content: CONTENT, contentFile: CONTENT_FILE, library });
-if (workshop) app.use('/api/workshop', workshop.router);
 app.use('/api/publish', publisher.sender);
-app.get('/api/config', (_req, res) => res.json({ atelier: Boolean(workshop), publish: publisher.enabled, publishTarget: publisher.enabled ? publisher.target : null }));
 app.use('/media', express.static(CLIPS_DIR));
 app.use(express.static(join(here, "public")));
 app.use("/clips", express.static(LEGACY_CLIPS));
@@ -66,6 +64,31 @@ app.get("/api/content-count", (_req, res) => res.json({ clips: CONTENT.length })
 
 const http = createServer(app);
 const io = new Server(http, { cors: { origin: "*" } });
+
+// Atelier : sur place (ce PC a le Python du spike et la carte graphique), ou « remote » sur le serveur en ligne,
+// où les traitements sont confiés au PC qui s'y connecte (agent.js). ATELIER=off le retire.
+const ATELIER = ['off', 'remote'].includes(process.env.ATELIER) ? process.env.ATELIER : 'local';
+const ATELIER_PIN = process.env.ATELIER_PIN || '';
+let workshop = null, remote = null;
+if (ATELIER === 'remote' && process.env.IMPORT_TOKEN) {
+  remote = createRemoteRunner({ io, root: join(DATA_DIR, 'workshop'), token: process.env.IMPORT_TOKEN });
+  app.use('/api/agent', remote.router);
+  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, runner: remote });
+} else if (ATELIER === 'local') {
+  const py = createPyWorker(join(here, '..', 'spike'));
+  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, runner: { run: (_id, dir, job, onStep) => py.runJob(dir, job, onStep) } });
+}
+if (workshop) {
+  // code d'accès facultatif (ATELIER_PIN) ; la lecture audio passe sans, son adresse contient un identifiant non devinable
+  app.use('/api/workshop', (req, res, next) => {
+    if (!ATELIER_PIN || (req.method === 'GET' && req.path.endsWith('/audio')) || req.headers['x-atelier-pin'] === ATELIER_PIN) return next();
+    res.status(401).json({ error: 'Code d’accès requis.' });
+  }, workshop.router);
+}
+app.get('/api/config', (_req, res) => res.json({
+  atelier: workshop ? ATELIER : false, pin: Boolean(workshop && ATELIER_PIN), pc: remote ? remote.connected() : null,
+  publish: publisher.enabled, publishTarget: publisher.enabled ? publisher.target : null,
+}));
 
 const rooms = new Map();
 

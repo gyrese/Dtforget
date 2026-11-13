@@ -6,6 +6,7 @@
   "scripts": {
     "build-content": "node scripts/build-content.js",
     "start": "node --env-file-if-exists=.env server.js",
+    "agent": "node --env-file-if-exists=.env agent.js",
     "test": "node --test scripts/library-test.mjs",
     "test:host": "node scripts/e2e-host-design.mjs",
     "test:game": "node scripts/e2e-game.mjs",

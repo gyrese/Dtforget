@@ -7,8 +7,10 @@ services:
     environment:
       # Adresse publique du jeu, pour le QR code des téléphones (ex. https://dtforget.example.com)
       - PUBLIC_URL=${PUBLIC_URL}
-      # Jeton qui autorise l'atelier du PC à envoyer des extraits (le même que PUBLISH_TOKEN sur le PC)
+      # Jeton partagé avec le PC (PUBLISH_TOKEN dans son app/.env) : agent de traitement et envoi d'extraits
       - IMPORT_TOKEN=${IMPORT_TOKEN}
+      # Code demandé pour ouvrir l'atelier en ligne (vide = atelier ouvert à tous)
+      - ATELIER_PIN=${ATELIER_PIN:-}
     networks:
       - nginx-proxy-network
     volumes:
