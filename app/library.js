@@ -34,6 +34,22 @@ export function createLibrary(content, file) {
         ? lists.map(l => l.id === src.id ? { ...l, coverImage: l.coverImage || cover, songIds: [...new Set([...l.songIds, songId])] } : l)
         : [...lists, { id: src.id, name: src.name.trim().slice(0, 40), description: String(src.description || '').trim().slice(0, 140), theme: ['magic', 'rock', 'mix'].includes(src.theme) ? src.theme : 'mix', coverImage: cover, songIds: [songId] }]);
     },
+    // listes d'une chanson, d'un coup : ajoutée à celles de listIds, retirée des autres.
+    // known : listes connues ailleurs (serveur en ligne) à créer ici si besoin.
+    setSongLists(songId, listIds, known = []) {
+      const want = new Set(listIds);
+      persist(lists.map(l => want.has(l.id)
+        ? (l.songIds.includes(songId) ? l : { ...l, songIds: [...l.songIds, songId] })
+        : (l.songIds.includes(songId) ? { ...l, songIds: l.songIds.filter(s => s !== songId) } : l)));
+      for (const def of known) if (want.has(def?.id) && !lists.some(l => l.id === def.id)) this.importList(def, songId);
+    },
+    // titre ou artiste modifié : la chanson garde ses listes
+    renameSong(oldId, newId, stillUsed) {
+      if (oldId === newId) return;
+      persist(lists.map(l => l.songIds.includes(oldId)
+        ? { ...l, songIds: [...new Set([...(stillUsed ? l.songIds : l.songIds.filter(s => s !== oldId)), newId])] } : l));
+    },
+    listsOf: songId => lists.filter(l => l.songIds.includes(songId)).map(l => l.id),
     save(id, input) {
       const songs = allSongs();
       if (id && !lists.some(l => l.id === id)) throw new Error('Cette liste n’existe plus.');

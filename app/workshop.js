@@ -11,7 +11,7 @@ const MAX_BYTES = 800 * 1024 * 1024;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const UA = 'DtForget/0.1 (jeu prive)';
 
-export function createWorkshop({ dataDir, content, contentFile, library, runner }) {
+export function createWorkshop({ dataDir, content, contentFile, library, runner, catalog }) {
   const root = join(dataDir, 'workshop');
   const clipsDir = join(dataDir, 'clips');
   mkdirSync(root, { recursive: true });
@@ -139,8 +139,12 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
     const remoteList = req.body?.list && req.body.list.id === listId ? req.body.list : null;
     if (listId && !remoteList && !library.get().lists.some((l) => l.id === listId)) return res.status(400).json({ error: 'Cette liste n’existe plus.' });
     const choice = req.body?.background ?? m.background ?? { type: 'auto' };
+    // nouveau passage depuis la bibliothèque : il remplace l'extrait d'origine, dont on garde le fond si on n'y a pas touché
+    const replace = (typeof req.body?.replace === 'string' && content.find((c) => c.id === req.body.replace && c.id.startsWith(id + '__'))) || null;
     let background = null, backgroundSource = null;
-    if (choice.type === 'youtube') {
+    if (replace && req.body?.keepBackground) {
+      background = replace.background ? { ...replace.background } : null;
+    } else if (choice.type === 'youtube') {
       const videoId = youtubeId(choice.url);
       if (!videoId) return res.status(400).json({ error: 'Indiquez un lien YouTube valide.' });
       background = { type: 'youtube', videoId };
@@ -159,7 +163,9 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
-      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, words: built.words, answer: built.answer };
+      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, words: built.words, answer: built.answer, updatedAt: Date.now() };
+      // l'ancien extrait disparaît d'ici ; à l'envoi, il est aussi retiré du serveur en ligne
+      if (replace && replace.id !== clipId) clip.replaces = replace.id;
       if (backgroundSource && !existsSync(join(clipsDir, background.file))) {
         copyFileSync(join(dirOf(id), backgroundSource), join(clipsDir, background.file));
       }
@@ -171,9 +177,15 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
       const at = content.findIndex((c) => c.id === clipId);
       at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
       writeJson(contentFile, content);
+      // retiré une fois le nouveau en place : son fond et ses listes restent à la chanson
+      if (clip.replaces) {
+        const kept = library.listsOf(songKey(replace));
+        catalog?.removeClip(clip.replaces);
+        library.setSongLists(songKey(clip), [...new Set([...library.listsOf(songKey(clip)), ...kept])]);
+      }
       if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
       const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, words: last - first + 1, listId: listId || null };
-      return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId), summary] };
+      return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId && c.id !== clip.replaces), summary] };
     });
     res.json({ ok: true });
   });

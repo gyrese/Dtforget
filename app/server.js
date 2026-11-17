@@ -11,6 +11,7 @@ import { createPublisher } from './publish.js';
 import { createRemoteRunner } from './remote.js';
 import { createPyWorker } from './pyworker.js';
 import { createAdmin } from './admin.js';
+import { createCatalog } from './catalog.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -48,7 +49,7 @@ const app = express();
 app.get('/vendor/animejs/anime.umd.min.js', (_req, res) => res.sendFile(join(here, 'node_modules', 'animejs', 'dist', 'bundles', 'anime.umd.min.js')));
 app.get('/vendor/gsap/gsap.min.js', (_req, res) => res.sendFile(join(here, 'node_modules', 'gsap', 'dist', 'gsap.min.js')));
 app.get('/vendor/lottie/lottie_light.min.js', (_req, res) => res.sendFile(join(here, 'node_modules', 'lottie-web', 'build', 'player', 'lottie_light.min.js')));
-const publisher = createPublisher({ content: CONTENT, contentFile: CONTENT_FILE, library, clipsDir: CLIPS_DIR, legacyDir: LEGACY_CLIPS });
+const publisher = createPublisher({ content: CONTENT, contentFile: CONTENT_FILE, library, clipsDir: CLIPS_DIR, legacyDir: LEGACY_CLIPS, removeClip: (id) => catalog.removeClip(id) });
 app.use('/api/import', publisher.importer); // avant le parseur JSON général : corps audio brut et listes volumineuses
 app.use(express.json({ limit: '1mb' }));
 app.get('/api/library', (_req, res) => res.json(library.get()));
@@ -73,20 +74,21 @@ const io = new Server(http, { cors: { origin: "*" } });
 const ATELIER = ['off', 'remote'].includes(process.env.ATELIER) ? process.env.ATELIER : 'local';
 const ATELIER_PIN = process.env.ATELIER_PIN || '';
 let workshop = null, remote = null;
+const catalog = createCatalog({ content: CONTENT, contentFile: CONTENT_FILE, library, clipsDir: CLIPS_DIR, workshopRoot: join(DATA_DIR, 'workshop') });
 if (ATELIER === 'remote' && process.env.IMPORT_TOKEN) {
   remote = createRemoteRunner({ io, root: join(DATA_DIR, 'workshop'), token: process.env.IMPORT_TOKEN });
   app.use('/api/agent', remote.router);
-  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, runner: remote });
+  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, catalog, runner: remote });
 } else if (ATELIER === 'local') {
   const py = createPyWorker(join(here, '..', 'spike'));
-  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, runner: { run: (_id, dir, job, onStep) => py.runJob(dir, job, onStep) } });
+  workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, catalog, runner: { run: (_id, dir, job, onStep) => py.runJob(dir, job, onStep) } });
 }
 if (workshop) {
   // code d'accès facultatif (ATELIER_PIN) ; la lecture audio passe sans, son adresse contient un identifiant non devinable
   app.use('/api/workshop', (req, res, next) => {
     if (!ATELIER_PIN || (req.method === 'GET' && req.path.endsWith('/audio')) || req.headers['x-atelier-pin'] === ATELIER_PIN) return next();
     res.status(401).json({ error: 'Code d’accès requis.' });
-  }, workshop.router);
+  }, catalog.router, workshop.router); // bibliothèque d'abord : /library ne doit pas passer pour un identifiant de média
 }
 app.get('/api/config', (_req, res) => res.json({
   atelier: workshop ? ATELIER : false, pin: Boolean(workshop && ATELIER_PIN), pc: remote ? remote.connected() : null,

@@ -13,7 +13,7 @@ import { songKey } from './library.js';
 const CLIP_ID = /^[\w.-]{1,120}$/;
 const MAX_AUDIO = 40 * 1024 * 1024;
 
-export function createPublisher({ content, contentFile, library, clipsDir, legacyDir }) {
+export function createPublisher({ content, contentFile, library, clipsDir, legacyDir, removeClip }) {
   const importToken = process.env.IMPORT_TOKEN || '';
   const target = (process.env.PUBLISH_URL || '').replace(/\/+$/, '');
   const publishToken = process.env.PUBLISH_TOKEN || '';
@@ -30,6 +30,12 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     next();
   });
   importer.param('clipId', (req, res, next, id) => CLIP_ID.test(id) ? next() : res.status(400).json({ error: 'Identifiant invalide.' }));
+  // bibliothèque de l'atelier : ce qui est déjà en ligne, pour comparer avec le PC
+  importer.get('/', (_req, res) => res.json({
+    clips: content.map((c) => ({ id: c.id, title: c.title, film: c.film, answer: c.answer, audio: c.audio, updatedAt: c.updatedAt || null, background: c.background || null, lists: library.listsOf(songKey(c)) })),
+    lists: library.get().lists.map(({ songIds, ...l }) => l),
+  }));
+  importer.delete('/:clipId', (req, res) => { removeClip(req.params.clipId); res.json({ ok: true }); });
   importer.put('/:clipId/audio', (req, res) => {
     const file = join(clipsDir, req.params.clipId + '.mp3');
     const out = createWriteStream(file + '.part');
@@ -55,7 +61,8 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     if (!existsSync(join(clipsDir, id + '.mp3'))) return res.status(409).json({ error: 'Audio manquant : envoyez-le d’abord.' });
     const clip = { id, film: c.film.trim().slice(0, 80), title: c.title.trim().slice(0, 80), audio: `/media/${id}.mp3?v=${Date.now()}`, cutAt: c.cutAt,
       words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400),
-      ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}) };
+      ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}),
+      ...(Number.isFinite(c.updatedAt) ? { updatedAt: c.updatedAt } : {}) };
     const b = c.background;
     if (b?.type === 'youtube' && /^[\w-]{11}$/.test(b.videoId || '')) {
       clip.background = { type: 'youtube', videoId: b.videoId };
@@ -69,11 +76,16 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
       };
     } else if (b != null) return res.status(400).json({ error: 'Fond invalide.' });
     const at = content.findIndex((x) => x.id === id);
+    const before = at >= 0 ? content[at] : null;
     at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
     saveContent();
-    for (const list of Array.isArray(req.body.lists) ? req.body.lists.slice(0, 50) : []) {
-      try { library.importList(list, songKey(clip)); } catch { /* liste ignorée */ }
-    }
+    // titre ou artiste changé sur le PC : la chanson garde ses listes
+    if (before) library.renameSong(songKey(before), songKey(clip), content.some((x) => songKey(x) === songKey(before)));
+    // le PC fait foi pour les listes de ses chansons
+    const lists = (Array.isArray(req.body.lists) ? req.body.lists.slice(0, 50) : []).filter((l) => l && typeof l.id === 'string');
+    try { library.setSongLists(songKey(clip), lists.map((l) => l.id), lists); } catch { /* liste invalide ignorée */ }
+    // nouveau passage choisi sur le PC : l'ancien extrait disparaît aussi d'ici
+    if (typeof c.replaces === 'string' && CLIP_ID.test(c.replaces) && c.replaces !== id) removeClip(c.replaces);
     res.json({ ok: true });
   });
 
@@ -125,6 +137,24 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
       if (!r.ok) throw new Error(String(r.status));
       res.json((await r.json()).lists.map(({ id, name, description, theme }) => ({ id, name, description, theme })));
     } catch { res.status(502).json({ error: 'Le serveur en ligne ne répond pas.' }); }
+  });
+  // bibliothèque de l'atelier : ce qui est en ligne, et suppression d'un extrait en ligne
+  const remoteCall = async (path, options = {}) => {
+    const r = await fetch(target + '/api/import' + path, { ...options, headers: { Authorization: 'Bearer ' + publishToken }, signal: AbortSignal.timeout(20000) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'erreur ' + r.status);
+    return data;
+  };
+  sender.get('/remote', async (_req, res) => {
+    if (!target || !publishToken) return res.status(400).json({ error: 'Serveur en ligne non configuré.' });
+    try { res.json({ ...(await remoteCall('/')), target }); }
+    catch (error) { res.status(502).json({ error: 'Le serveur en ligne ne répond pas (' + error.message + ').' }); }
+  });
+  sender.delete('/remote/:clipId', async (req, res) => {
+    if (!target || !publishToken) return res.status(400).json({ error: 'Serveur en ligne non configuré.' });
+    if (!CLIP_ID.test(req.params.clipId)) return res.status(400).json({ error: 'Identifiant invalide.' });
+    try { await remoteCall('/' + encodeURIComponent(req.params.clipId), { method: 'DELETE' }); res.json({ ok: true }); }
+    catch (error) { res.status(502).json({ error: 'Suppression en ligne impossible (' + error.message + ').' }); }
   });
   sender.post('/', async (req, res) => {
     if (!target || !publishToken) return res.status(400).json({ error: 'Serveur en ligne non configuré (PUBLISH_URL et PUBLISH_TOKEN dans app/.env).' });

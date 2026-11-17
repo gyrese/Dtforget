@@ -73,12 +73,39 @@ audio{width:100%;margin-top:18px}
 #background-dialog::backdrop{background:rgb(13 18 30 / .65)}
 #background-dialog label{margin-bottom:14px}
 #background-file{max-width:100%}
+.tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--rule)}
+.tabs a{padding:10px 16px;font-weight:700;font-size:14px;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabs a:hover{color:var(--ink)}.tabs a[aria-current=page]{color:var(--ink);border-bottom-color:var(--spot)}
+.lib-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 16px}
+.lib-tools input{flex:1;min-width:200px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{min-height:38px;border:1px solid var(--rule-strong);border-radius:var(--r-pill);padding:6px 14px;background:transparent;font-size:13px;font-weight:700}
+.chip[aria-pressed=true]{background:var(--spot);border-color:var(--spot);color:var(--on-spot)}
+.lib{list-style:none;padding:0;margin:0;border-top:1px solid var(--rule)}
+.lib li{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--edge)}
+.lib .who{min-width:0}.lib .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib .who small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib .ans{color:var(--led)}
+.lib .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.lib .acts .quiet,.lib .play{min-height:40px;padding:6px 12px}
+.lib .play{width:44px;padding:0}
+.tag.live{border-color:var(--live);color:#ffc2c7}.tag.warn{border-color:var(--spot);color:var(--spot)}.tag.off{border-style:dashed}
+.lib-lists{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}.lib-lists span{font-size:11px;color:var(--haze);border:1px solid var(--edge);border-radius:var(--r-pill);padding:0 8px}
+#edit-dialog{width:min(560px,calc(100% - 32px));padding:24px;color:var(--chalk);background:var(--deck);border:1px solid var(--rule-strong);border-radius:8px}
+#edit-dialog::backdrop{background:rgb(13 18 30 / .65)}
+#edit-dialog label{margin-bottom:14px}
+.checks{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px;border:0;padding:0}
+.checks legend{font-size:13px;font-weight:700;margin-bottom:6px;padding:0}
+.checks label{flex-direction:row;align-items:center;gap:8px;font-weight:400;margin:0!important;min-height:36px}
+.lib .tag{justify-self:start}.lib .spacer{width:44px}
+@media (max-width:720px){.lib li{grid-template-columns:auto 1fr}.lib li > .tag,.lib .acts{grid-column:2}.lib .acts{justify-content:flex-start}}
 </style>
 </head>
 <body>
 <div class="page">
   <header><a class="brand" href="/host.html">dt<span>forget</span></a><a class="quiet" href="/host.html">← Retour au jeu</a></header>
-  <h1>Ajouter une chanson.</h1>
+  <nav class="tabs" aria-label="Atelier"><a href="/atelier.html" id="tab-add">Ajouter une chanson</a><a href="/atelier.html#bibliotheque" id="tab-lib">Bibliothèque</a></nav>
+  <h1 id="page-title">Ajouter une chanson.</h1>
   <p class="wait" id="app-offline" hidden>Aucun serveur en ligne n’est relié : les extraits resteront sur ce PC. Menu Réglages → Serveur en ligne.</p>
   <ol class="steps" id="steps"><li><b>1</b><span>Le média</span></li><li><b>2</b><span>Analyse</span></li><li><b>3</b><span>Les paroles</span></li><li><b>4</b><span>Le passage à deviner</span></li></ol>
 
@@ -118,9 +145,42 @@ audio{width:100%;margin-top:18px}
   <section id="v-done" hidden>
     <div class="card"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p>
       <audio id="done-audio" controls preload="auto"></audio>
-      <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p></div>
+      <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p></div>
+  </section>
+
+  <section id="v-library" hidden>
+    <p class="lead" id="lib-lead">Toutes les chansons de ce PC, et ce qui est déjà en ligne.</p>
+    <div class="lib-tools">
+      <input type="search" id="lib-q" placeholder="Chercher un titre, un artiste, une réponse…" aria-label="Chercher dans la bibliothèque">
+      <div class="chips" id="lib-filters" role="group" aria-label="Filtrer"></div>
+    </div>
+    <div class="row" style="margin:0 0 14px"><p class="note grow" id="lib-status" role="status"></p><button class="quiet" id="lib-sync" hidden>Envoyer ce qui n’est pas à jour ↑</button></div>
+    <ul class="lib" id="lib"></ul>
+    <div id="drafts-box" hidden style="margin-top:34px"><h2>En cours.</h2><p class="lead" style="margin:0 0 10px">Chansons analysées dans l’atelier, sans extrait pour l’instant.</p><ul class="lib" id="drafts"></ul></div>
   </section>
 </div>
+
+<dialog id="edit-dialog">
+  <form method="dialog" id="edit-form">
+    <h2>Modifier la chanson</h2>
+    <p class="note" id="edit-answer" style="margin:0 0 16px"></p>
+    <div class="fields" style="margin-top:0"><label>Titre de la chanson<input type="text" id="edit-title" maxlength="80" required autocomplete="off"></label><label>Artiste ou film<input type="text" id="edit-film" maxlength="80" required autocomplete="off"></label></div>
+    <fieldset class="checks" id="edit-lists"><legend>Listes</legend></fieldset>
+    <label>Fond en jeu
+      <select id="edit-bg">
+        <option value="keep">Garder le fond actuel</option>
+        <option value="file">Nouvelle image ou vidéo</option>
+        <option value="youtube">Vidéo YouTube</option>
+        <option value="none">Image de la série</option>
+      </select>
+      <small class="note" id="edit-bg-now"></small>
+    </label>
+    <label id="edit-file-row" hidden>Fichier<input id="edit-file" type="file" accept=".jpg,.jpeg,.png,.webp,.avif,.mp4,.webm"></label>
+    <label id="edit-url-row" hidden>Lien YouTube<input type="text" inputmode="url" id="edit-url" placeholder="https://www.youtube.com/watch?v=…"></label>
+    <p class="status" id="edit-status" role="alert"></p>
+    <div class="row" style="margin-top:8px"><a class="quiet" id="edit-passage" href="#">Changer le passage ou les paroles</a><span class="grow"></span><button class="quiet" value="cancel" formnovalidate>Annuler</button><button class="btn" id="edit-save" value="save">Enregistrer</button></div>
+  </form>
+</dialog>
 
 <div class="dock" id="dock" hidden><div class="dock-in">
   <div class="grow"><b id="dock-count">Aucun passage choisi</b><small id="dock-hint">Cliquez sur le premier mot à deviner.</small></div>
@@ -159,7 +219,10 @@ let remoteLists = null; // listes du serveur en ligne (application de bureau)
 const config = fetch('/api/config').then((r) => r.json()).catch(() => ({}));
 let remote = false; // atelier en ligne : c'est le PC qui travaille pour le serveur
 const STEPS = [['upload', 'Envoi du fichier'], ['fetch', 'Transfert vers votre PC'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot'], ['return', 'Retour des résultats']];
-let id = location.hash.slice(1) || null, state = null, file = null, sel = null, anchor = null, pollTimer = null, stopAt = null, kind = 'analyze';
+const LIBRARY = location.hash === '#bibliotheque';
+// nouveau passage demandé depuis la bibliothèque : il remplacera cet extrait
+let replaceId = new URLSearchParams(location.search).get('replace');
+let id = (!LIBRARY && location.hash.slice(1)) || null, state = null, file = null, sel = null, anchor = null, pollTimer = null, stopAt = null, kind = 'analyze';
 const player = $('player');
 const pin = () => { try { return localStorage.getItem('atelier-pin') || ''; } catch { return ''; } };
 function askPin() {
@@ -181,8 +244,12 @@ const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Typ
 const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 function view(name, step) {
-  for (const v of ['media', 'work', 'find', 'lyrics', 'done']) $('v-' + v).hidden = v !== name;
+  for (const v of ['media', 'work', 'find', 'lyrics', 'done', 'library']) $('v-' + v).hidden = v !== name;
   $('dock').hidden = name !== 'lyrics';
+  const lib = name === 'library';
+  $('steps').hidden = lib;
+  $('page-title').textContent = lib ? 'Bibliothèque.' : replaceId ? 'Changer le passage.' : 'Ajouter une chanson.';
+  $(lib ? 'tab-lib' : 'tab-add').setAttribute('aria-current', 'page'); $(lib ? 'tab-add' : 'tab-lib').removeAttribute('aria-current');
   [...$('steps').children].forEach((li, i) => { li.classList.toggle('done', i < step); i === step ? li.setAttribute('aria-current', 'step') : li.removeAttribute('aria-current'); });
   if (name !== 'lyrics') player.pause();
   window.scrollTo(0, 0);
@@ -337,7 +404,7 @@ player.ontimeupdate = () => {
   document.querySelectorAll('#lyrics .w').forEach((b) => { const w = state.words[+b.dataset.i]; b.classList.toggle('play', !player.paused && t >= w.t && t < w.e + 0.15); });
 };
 player.onplay = () => { $('listen').textContent = '■ Arrêter'; };
-player.onpause = () => { $('listen').textContent = '▶ Écouter'; document.querySelectorAll('#lyrics .w.play').forEach((b) => b.classList.remove('play')); };
+player.onpause = () => { $('listen').textContent = '▶ Écouter'; document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; }); document.querySelectorAll('#lyrics .w.play').forEach((b) => b.classList.remove('play')); };
 const backgroundType = $('background-type');
 const backgroundFile = $('background-file');
 function showBackgroundFields() {
@@ -383,7 +450,8 @@ $('build').onclick = async () => {
         background = type === 'youtube' ? { type, url: $('background-url').value.trim() } : { type };
       }
     }
-    await post('/' + id + '/clip', { first: sel[0], last: sel[1], background, title: state.title, film: state.artist, listId: $('list').value || null, list: remoteLists?.find((l) => l.id === $('list').value) || undefined });
+    const keepBackground = Boolean(replaceId) && $('background-dialog').dataset.song !== id;
+    await post('/' + id + '/clip', { first: sel[0], last: sel[1], background, replace: replaceId || undefined, keepBackground, title: state.title, film: state.artist, listId: $('list').value || null, list: remoteLists?.find((l) => l.id === $('list').value) || undefined });
     kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
   } catch (error) { $('dock-hint').textContent = error.message; build.disabled = false; }
 };
@@ -395,6 +463,8 @@ function showDone() {
   $('done-lead').textContent = clip.words + (clip.words > 1 ? ' mots' : ' mot') + ' à deviner, coupure à ' + fmt(clip.cutAt) + ' dans l’extrait.' + (list ? ' Ajouté à la liste « ' + list + ' ».' : '');
   backgroundFile.value = '';
   $('done-audio').src = clip.audio; $('publish-one-status').textContent = '';
+  // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
+  if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
   kind = 'analyze'; view('done', 4);
   config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
@@ -403,6 +473,7 @@ $('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
 /* Envoi vers le serveur en ligne (si PUBLISH_URL et PUBLISH_TOKEN sont réglés sur ce PC) */
 async function publish(button, status, clipIds) {
   button.disabled = true; status.textContent = 'Envoi en cours…';
+  let ok = false;
   try {
     const res = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clipIds ? { clipIds } : {}) });
     const r = await res.json().catch(() => ({}));
@@ -410,8 +481,10 @@ async function publish(button, status, clipIds) {
     status.textContent = r.failed.length
       ? r.sent + ' sur ' + r.total + ' envoyé' + (r.sent > 1 ? 's' : '') + '. Échec : ' + r.failed.map((f) => f.title + ' (' + f.error + ')').join(', ') + '.'
       : r.sent + (r.sent > 1 ? ' extraits envoyés' : ' extrait envoyé') + ' sur ' + new URL(r.target).host + '.';
+    ok = !r.failed.length;
   } catch (error) { status.textContent = error.message; }
   button.disabled = false;
+  return ok;
 }
 config.then((c) => {
   remote = c.atelier === 'remote'; $('publish-all-row').hidden = !c.publish; $('publish-one').hidden = !c.publish;
@@ -421,8 +494,198 @@ config.then((c) => {
 $('publish-all').onclick = () => publish($('publish-all'), $('publish-all-status'));
 $('publish-one').onclick = () => publish($('publish-one'), $('publish-one-status'), [state.clips[state.clips.length - 1].id]);
 
+/* Bibliothèque : les extraits de ce PC, comparés à ceux du serveur en ligne */
+let lib = null, libFilter = 'all', editing = null;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const bgLabel = (b) => !b ? 'Image de la série' : b.type === 'youtube' ? 'Vidéo YouTube' : b.type === 'video' ? 'Vidéo' : 'Image';
+const FILTERS = [['all', 'Toutes'], ['todo', 'À envoyer'], ['online', 'En ligne'], ['remote', 'Seulement en ligne']];
+
+async function showLibrary(note) {
+  view('library', -1);
+  $('lib-status').textContent = note || 'Chargement…';
+  const cfg = await config;
+  try {
+    const local = await api('/library');
+    let online = null, offline = null;
+    if (cfg.publish) {
+      try { const r = await fetch('/api/publish/remote'); const d = await r.json(); if (!r.ok) throw new Error(d.error); online = d; }
+      catch (error) { offline = error.message; }
+    }
+    lib = { local, online, offline, publish: cfg.publish };
+    renderLibrary();
+    if (note) $('lib-status').textContent = note + ' ' + $('lib-status').textContent;
+  } catch (error) { $('lib-status').textContent = error.message; }
+}
+// état d'un extrait du PC par rapport au serveur en ligne
+function syncOf(c) {
+  if (!lib.online) return null;
+  const r = lib.online.clips.find((x) => x.id === c.id);
+  return !r ? 'todo' : (r.updatedAt || null) === (c.updatedAt || null) ? 'online' : 'changed';
+}
+function renderLibrary() {
+  const { local, online } = lib;
+  $('lib-lead').textContent = online ? 'Les chansons de ce PC, et ce qui est déjà en ligne sur ' + new URL(online.target).host + '.'
+    : lib.offline ? 'Les chansons de ce PC. ' + lib.offline : 'Les chansons de ce serveur.';
+  $('lib-filters').replaceChildren(...(online ? FILTERS : []).map(([k, label]) => {
+    const b = el('button', 'chip', label); b.type = 'button'; b.setAttribute('aria-pressed', String(libFilter === k));
+    b.onclick = () => { libFilter = k; renderLibrary(); }; return b;
+  }));
+  const q = $('lib-q').value.trim().toLowerCase();
+  const match = (c) => !q || [c.title, c.film, c.answer].some((s) => String(s || '').toLowerCase().includes(q));
+  const listName = (lid) => [...local.lists, ...(online?.lists || [])].find((l) => l.id === lid)?.name;
+  const rows = [];
+  const todo = [];
+  for (const c of local.clips) {
+    const s = syncOf(c);
+    if (s && s !== 'online') todo.push(c.id);
+    if (!match(c) || (libFilter === 'todo' && !(s === 'todo' || s === 'changed')) || (libFilter === 'online' && s !== 'online') || libFilter === 'remote') continue;
+    rows.push(clipRow(c, s, listName));
+  }
+  const remoteOnly = online ? online.clips.filter((r) => !local.clips.some((c) => c.id === r.id)) : [];
+  if (libFilter === 'all' || libFilter === 'remote') for (const r of remoteOnly.filter(match)) rows.push(remoteRow(r, listName));
+  $('lib').replaceChildren(...rows);
+  const n = local.clips.length;
+  $('lib-status').textContent = (n ? n + (n > 1 ? ' extraits sur ce PC' : ' extrait sur ce PC') : 'Aucun extrait sur ce PC pour l’instant.')
+    + (online ? ' · ' + (online.clips.length - remoteOnly.length) + ' en ligne · ' + todo.length + ' à envoyer' + (remoteOnly.length ? ' · ' + remoteOnly.length + ' seulement en ligne' : '') : '')
+    + (!rows.length && n ? ' · aucun résultat pour ce filtre.' : '');
+  $('lib-sync').hidden = !online || !todo.length;
+  $('lib-sync').dataset.ids = JSON.stringify(todo);
+  $('drafts-box').hidden = !local.drafts.length;
+  $('drafts').replaceChildren(...local.drafts.map(draftRow));
+}
+function playButton(src, from) {
+  const b = el('button', 'quiet play', '▶'); b.type = 'button'; b.setAttribute('aria-label', 'Écouter');
+  b.onclick = () => {
+    const same = player.dataset.lib === src;
+    document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; });
+    if (same && !player.paused) { player.pause(); return; }
+    stopAt = null;
+    if (!same) { player.src = src; player.dataset.lib = src; }
+    const start = () => { player.currentTime = from || 0; player.play().catch(() => {}); b.textContent = '■'; };
+    player.readyState >= 1 && same ? start() : player.addEventListener('loadedmetadata', start, { once: true });
+    if (!same) player.load();
+  };
+  return b;
+}
+function whoBlock(c, listName) {
+  const who = el('div', 'who');
+  who.append(el('b', '', c.title), el('small', '', c.film));
+  const ans = el('small'); ans.append('Réponse : ', el('span', 'ans', c.answer)); who.append(ans);
+  if (c.lists?.length) { const ls = el('div', 'lib-lists'); for (const l of c.lists) ls.append(el('span', '', listName(l) || l)); who.append(ls); }
+  return who;
+}
+function clipRow(c, s, listName) {
+  const li = el('li');
+  const tag = s === 'online' ? el('span', 'tag near', 'En ligne') : s === 'changed' ? el('span', 'tag warn', 'Modifié · à renvoyer') : s === 'todo' ? el('span', 'tag live', 'Pas encore en ligne') : el('span', 'tag', bgLabel(c.background));
+  const acts = el('div', 'acts');
+  const edit = el('button', 'quiet', 'Modifier'); edit.type = 'button'; edit.onclick = () => openEdit(c);
+  acts.append(edit);
+  if (s === 'todo' || s === 'changed') {
+    const send = el('button', 'quiet', 'Envoyer ↑'); send.type = 'button';
+    send.onclick = async () => { await publish(send, $('lib-status'), [c.id]); showLibrary($('lib-status').textContent); };
+    acts.append(send);
+  }
+  const del = el('button', 'quiet', 'Supprimer'); del.type = 'button'; del.onclick = () => removeLocal(c, s);
+  acts.append(del);
+  li.append(playButton(c.audio, Math.max(0, (c.cutAt || 0) - 8)), whoBlock(c, listName), tag, acts);
+  return li;
+}
+function remoteRow(r, listName) {
+  const li = el('li');
+  const acts = el('div', 'acts');
+  const del = el('button', 'quiet', 'Supprimer en ligne'); del.type = 'button';
+  del.onclick = async () => {
+    if (!confirm('Supprimer « ' + r.title + ' » du serveur en ligne ?\nCet extrait n’est pas sur ce PC : il sera perdu.')) return;
+    try { await removeRemote(r.id); showLibrary(); } catch (error) { $('lib-status').textContent = error.message; }
+  };
+  acts.append(del);
+  li.append(playButton(new URL(r.audio, lib.online.target).href, 0), whoBlock(r, listName), el('span', 'tag off', 'Seulement en ligne'), acts);
+  return li;
+}
+const STATUS = { working: 'Traitement en cours', needs_lyrics: 'Paroles à choisir', ready: 'Passage à choisir', error: 'Erreur' };
+function draftRow(d) {
+  const li = el('li');
+  const who = el('div', 'who'); who.append(el('b', '', d.title), el('small', '', d.artist || '—'));
+  if (d.error) who.append(el('small', '', d.error));
+  const acts = el('div', 'acts');
+  const go = el('a', 'quiet', 'Reprendre'); go.href = '/atelier.html#' + d.id; acts.append(go);
+  const del = el('button', 'quiet', 'Supprimer'); del.type = 'button'; del.disabled = d.status === 'working';
+  del.onclick = async () => {
+    if (!confirm('Supprimer « ' + d.title + ' » et son analyse ?\nIl faudra renvoyer le fichier pour recommencer.')) return;
+    try { await api('/library/media/' + d.id, { method: 'DELETE' }); showLibrary(); } catch (error) { $('lib-status').textContent = error.message; }
+  };
+  acts.append(del);
+  li.append(el('span', 'spacer'), who, el('span', 'tag' + (d.status === 'error' ? ' live' : ''), STATUS[d.status] || d.status), acts);
+  return li;
+}
+async function removeRemote(clipId) {
+  const r = await fetch('/api/publish/remote/' + encodeURIComponent(clipId), { method: 'DELETE' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Suppression en ligne impossible.');
+}
+async function removeLocal(c, s) {
+  const online = s === 'online' || s === 'changed';
+  if (!confirm('Supprimer « ' + c.title + ' » (' + c.film + ') ?\n' + (online ? 'L’extrait sera retiré de ce PC et du serveur en ligne.' : 'L’extrait sera retiré de ce PC.') + ' Le média reste dans « En cours » pour refaire un passage.')) return;
+  try {
+    if (online) await removeRemote(c.id);
+    await api('/library/' + encodeURIComponent(c.id), { method: 'DELETE' });
+    showLibrary();
+  } catch (error) { $('lib-status').textContent = error.message; }
+}
+
+/* Modifier une chanson */
+const editBg = $('edit-bg');
+editBg.onchange = () => { $('edit-file-row').hidden = editBg.value !== 'file'; $('edit-url-row').hidden = editBg.value !== 'youtube'; };
+function openEdit(c) {
+  editing = c;
+  $('edit-title').value = c.title; $('edit-film').value = c.film;
+  $('edit-answer').replaceChildren('Réponse : ', el('span', 'ans', c.answer));
+  const lists = [...lib.local.lists];
+  for (const l of lib.online?.lists || []) if (!lists.some((x) => x.id === l.id)) lists.push(l);
+  const box = $('edit-lists'); box.replaceChildren(el('legend', '', 'Listes'));
+  for (const l of lists) {
+    const label = el('label'), cb = el('input'); cb.type = 'checkbox'; cb.value = l.id; cb.checked = c.lists.includes(l.id);
+    label.append(cb, l.name); box.append(label);
+  }
+  editBg.value = 'keep'; editBg.onchange();
+  $('edit-bg-now').textContent = 'Actuellement : ' + bgLabel(c.background) + '.';
+  $('edit-url').value = c.background?.type === 'youtube' ? 'https://www.youtube.com/watch?v=' + c.background.videoId : '';
+  $('edit-file').value = '';
+  $('edit-passage').hidden = !c.media;
+  if (c.media) $('edit-passage').href = '/atelier.html?replace=' + encodeURIComponent(c.id) + '#' + c.media;
+  $('edit-status').textContent = '';
+  $('edit-dialog').showModal();
+}
+$('edit-form').onsubmit = async (e) => {
+  if (e.submitter?.value !== 'save') return;
+  e.preventDefault();
+  const c = editing, save = $('edit-save');
+  save.disabled = true; $('edit-status').textContent = 'Enregistrement…';
+  try {
+    const lists = [...$('edit-lists').querySelectorAll('input:checked')].map((x) => x.value);
+    const known = (lib.online?.lists || []).filter((l) => lists.includes(l.id));
+    await api('/library/' + encodeURIComponent(c.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: $('edit-title').value, film: $('edit-film').value, lists, known }) });
+    const bgPost = (body) => api('/library/' + encodeURIComponent(c.id) + '/background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (editBg.value === 'file') {
+      const f = $('edit-file').files[0];
+      if (!f) throw new Error('Choisissez un fichier de fond.');
+      $('edit-status').textContent = 'Envoi du fond…';
+      const up = await api('/library/' + encodeURIComponent(c.id) + '/background?' + new URLSearchParams({ name: f.name }), { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: f });
+      await bgPost({ type: 'file', file: up.file });
+    } else if (editBg.value === 'youtube') await bgPost({ type: 'youtube', url: $('edit-url').value.trim() });
+    else if (editBg.value === 'none') await bgPost({ type: 'none' });
+    // si un serveur en ligne est relié, la modification y part tout de suite
+    if (lib.online && !(await publish(save, $('edit-status'), [c.id]))) { showLibrary(); save.disabled = false; return; }
+    $('edit-dialog').close();
+    showLibrary();
+  } catch (error) { $('edit-status').textContent = error.message; }
+  save.disabled = false;
+};
+$('lib-q').oninput = () => lib && renderLibrary();
+$('lib-sync').onclick = async () => { await publish($('lib-sync'), $('lib-status'), JSON.parse($('lib-sync').dataset.ids || '[]')); showLibrary($('lib-status').textContent); };
+
 window.onhashchange = () => location.reload();
-if (id) poll(); else view('media', 0);
+if (LIBRARY) showLibrary(); else if (id) poll(); else view('media', 0);
 </script>
 </body>
 </html>
