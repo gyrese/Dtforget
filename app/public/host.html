@@ -36,7 +36,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
 .w{transition:color .15s}
 .w.sung{color:var(--sun)}
 .w.gap{color:var(--cyan)}
-.w.hole{display:inline-block;white-space:nowrap;min-width:4em;text-align:center;border-bottom:4px solid var(--cyan);color:var(--cyan);animation:blink 1s ease-in-out infinite alternate}
+.w.hole{display:inline-block;white-space:normal;max-width:100%;vertical-align:top;min-width:4em;text-align:center;border-bottom:4px solid var(--cyan);color:var(--cyan);animation:blink 1s ease-in-out infinite alternate}
 .bar{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:18px 34px;font-size:22px;font-weight:700}
 .count{font-family:Unbounded,sans-serif;font-weight:900;color:var(--cyan)}
 .answer{font-family:Unbounded,sans-serif;font-weight:900;font-size:72px;line-height:1.15;color:var(--cyan)}
@@ -67,7 +67,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
   </section>
   <section class="screen" id="s-detail">
     <div class="top"><button class="quiet back-menu">← Les univers</button></div>
-    <div class="detail-layout"><div id="detail-cover" class="detail-cover"></div><div class="detail-copy"><h1 id="detail-name"></h1><p id="detail-description"></p><div id="detail-count" class="label"></div><fieldset class="round-options"><legend>Durée de la partie</legend><label><input type="radio" name="rounds" value="3">3 manches</label><label><input type="radio" name="rounds" value="5" checked>5 manches</label><label><input type="radio" name="rounds" value="10">10 manches</label></fieldset><div class="detail-actions"><button class="btn" id="create-room">Créer le salon →</button><button class="quiet" id="edit-list">Modifier la liste</button></div><p class="hint" id="detail-hint"></p></div></div>
+    <div class="detail-layout"><div id="detail-cover" class="detail-cover"></div><div class="detail-copy"><h1 id="detail-name"></h1><p id="detail-description"></p><div id="detail-count" class="label"></div><fieldset class="round-options"><legend>Durée de la partie</legend><label><input type="radio" name="rounds" value="3">3 manches</label><label><input type="radio" name="rounds" value="5" checked>5 manches</label><label><input type="radio" name="rounds" value="10">10 manches</label></fieldset><fieldset class="round-options"><legend>Chrono après la musique</legend><label><input type="radio" name="answer-time" value="5">5 s</label><label><input type="radio" name="answer-time" value="10" checked>10 s</label><label><input type="radio" name="answer-time" value="15">15 s</label><label><input type="radio" name="answer-time" value="20">20 s</label><label><input type="radio" name="answer-time" value="30">30 s</label></fieldset><div class="detail-actions"><button class="btn" id="create-room">Créer le salon →</button><button class="quiet" id="edit-list">Modifier la liste</button></div><p class="hint" id="detail-hint"></p></div></div>
     <div class="collection-label">AU PROGRAMME</div><div id="detail-songs" class="song-preview"></div>
   </section>
   <section class="screen" id="s-library">
@@ -107,7 +107,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
     <div class="top"><div class="label" id="play-round"></div><div class="label" id="play-film"></div></div>
     <div class="track"><div class="fill" id="timer"></div></div>
     <div class="lyrics" id="lyrics"></div>
-    <div class="bar"><span>Répondez sur votre téléphone</span><span class="count" id="answers">0 réponse</span></div>
+    <div class="bar"><span id="bar-msg">Répondez sur votre téléphone</span><span class="count" id="answers">0 réponse</span></div>
   </section>
 
   <section class="screen" id="s-reveal">
@@ -206,6 +206,8 @@ socket.on("round:clip", (c) => {
   if (cur.length) lineGroups.push(cur);
   renderLyrics();
   $("lyrics").scrollTop = 0;
+  $("bar-msg").textContent = "Répondez sur votre téléphone";
+  audio.volume = 1;
   audio.src = c.audio;
   audio.currentTime = 0;
   background.set(c, roomCover);
@@ -214,10 +216,16 @@ socket.on("round:clip", (c) => {
   requestAnimationFrame(tick);
 });
 
-// pendant la manche, l'extrait s'arrête avant la reprise chantée rangée à la fin du même fichier
-audio.addEventListener("timeupdate", () => {
-  if (clip?.revealAt != null && $("s-play").classList.contains("on") && audio.currentTime >= clip.revealAt - 0.6) audio.pause();
-});
+// pendant la manche, l'instrumental s'éteint 5 s après le passage (fondu d'une seconde), puis le chrono
+const FADE = 1;
+function bedStop() {
+  if (!clip || !$("s-play").classList.contains("on") || audio.paused) return;
+  const end = clip.bedEnd ?? (clip.revealAt != null ? clip.revealAt - 0.6 : Infinity);
+  const left = end - audio.currentTime;
+  if (left <= 0) { audio.pause(); audio.volume = 1; return; }
+  audio.volume = Math.min(1, left / FADE);
+}
+audio.addEventListener("timeupdate", bedStop);
 
 function renderLyrics() {
   const box = $("lyrics");
@@ -228,9 +236,10 @@ function renderLyrics() {
     grp.forEach((i) => {
       const w = clip.words[i];
       const prev = L.lastElementChild;
-      // les tirets d'un même trou sont regroupés dans une seule case, sur une ligne
+      // un mot à trouver = un bloc insécable ; un trou long passe à la ligne entre deux mots
+      const hw = () => { const h = document.createElement("span"); h.className = "hw"; h.textContent = w.x; return h; };
       if (w.gap && prev && prev.dataset.gap === "1") {
-        prev.textContent += w.x + " ";
+        prev.append(" ", hw());
         return;
       }
       const s = document.createElement("span");
@@ -238,8 +247,9 @@ function renderLyrics() {
       s.dataset.gap = w.gap ? "1" : "0";
       // le mot à trouver est masqué dès le départ : jamais affiché avant la révélation
       s.className = w.gap ? "w hole" : "w";
-      s.textContent = w.x + " "; // mot à trouver : déjà remplacé par des tirets, une par lettre
-      L.appendChild(s);
+      if (w.gap) s.append(hw()); // déjà remplacé par des tirets, un par lettre
+      else s.textContent = w.x;
+      L.append(s, " ");
     });
     box.appendChild(L);
   });
@@ -258,7 +268,6 @@ function tick() {
       const t0 = +s.dataset.t;
       if (s.dataset.gap === "1") {
         s.className = "w hole";
-        s.textContent = s.textContent.endsWith(" ") ? s.textContent : s.textContent + " ";
       } else {
         s.className = "w" + (t >= t0 ? " sung" : "");
       }
@@ -268,16 +277,24 @@ function tick() {
     if (inLine) active = L;
   });
   if (active && active !== tick.active) { const box = $("lyrics"); box.scrollTo({ top: active.offsetTop - box.offsetTop - box.clientHeight / 2 + active.clientHeight / 2, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" }); tick.active = active; }
+  bedStop();
   if (!audio.paused) requestAnimationFrame(tick);
 }
 
-socket.on("answer:open", ({ seconds }) => {
+// la barre suit la musique jusqu'à son arrêt, puis se vide pendant le chrono
+let answerTimer = null;
+socket.on("answer:open", ({ seconds, music = 0, timer = seconds }) => {
   $("answers").textContent = "0 réponse";
+  clearInterval(answerTimer);
   const start = performance.now();
-  const timer = setInterval(() => {
-    const left = Math.max(0, seconds - (performance.now() - start) / 1000);
-    $("timer").style.width = (left / seconds) * 100 + "%";
-    if (left <= 0) clearInterval(timer);
+  answerTimer = setInterval(() => {
+    const elapsed = (performance.now() - start) / 1000;
+    if (!$("s-play").classList.contains("on")) return clearInterval(answerTimer);
+    if (elapsed < music) return;
+    const left = Math.max(0, timer - (elapsed - music));
+    $("timer").style.width = (left / timer) * 100 + "%";
+    $("bar-msg").textContent = "Plus que " + Math.ceil(left) + " s pour répondre";
+    if (left <= 0) clearInterval(answerTimer);
   }, 100);
 });
 socket.on("answers:count", (n) => {
@@ -286,6 +303,7 @@ socket.on("answers:count", (n) => {
 
 socket.on("reveal", ({ answer, film, title, ranking }) => {
   audio.pause();
+  audio.volume = 1;
   // reprise 10 s avant le passage, avec les paroles, jusqu'à 10 s après
   if (clip?.revealAt != null) { audio.currentTime = clip.revealAt; audio.play().catch(() => {}); }
   $("rev-film").textContent = film + " · " + title;

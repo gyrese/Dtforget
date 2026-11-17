@@ -67,6 +67,18 @@ textarea{min-height:150px;resize:vertical}
 .dock select{width:auto;min-width:150px;;}
 .dock label{flex-direction:row;align-items:center;gap:8px;font-weight:400}
 audio{width:100%;margin-top:18px}
+.trim{margin-top:22px}
+.trim-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.trim-head b{color:var(--ink);font:700 13px var(--f-mono)}
+.trim-bar{position:relative;height:64px;margin:10px 0 6px;background:var(--deck-2);border:1px solid var(--rule-strong);border-radius:var(--r-md);touch-action:none;user-select:none}
+.trim-keep{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--spot) 22%,transparent)}
+.trim-gap{position:absolute;top:18px;bottom:18px;background:var(--led);border-radius:2px}
+.trim-cut{position:absolute;top:6px;bottom:6px;width:0;border-left:2px dashed var(--led)}
+.trim-h{position:absolute;top:-6px;bottom:-6px;width:28px;margin-left:-14px;border:0;background:transparent;cursor:ew-resize;padding:0}
+.trim-h::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:4px;border-radius:2px;background:var(--spot)}
+.trim-h::after{content:'';position:absolute;left:5px;top:50%;width:18px;height:26px;margin-top:-13px;border-radius:4px;background:var(--spot)}
+.trim-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.trim-scale{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted)}
 @media (max-width:640px){.fields{grid-template-columns:1fr}.steps li span{display:none}.lyrics{font-size:18px;padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 #background-dialog{width:min(440px,calc(100% - 32px));padding:24px;color:var(--chalk);background:var(--deck);border:1px solid var(--rule-strong);border-radius:8px}
@@ -145,6 +157,13 @@ audio{width:100%;margin-top:18px}
   <section id="v-done" hidden>
     <div class="card"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p>
       <audio id="done-audio" controls preload="auto"></audio>
+      <div class="trim" id="trim" hidden>
+        <div class="trim-head"><span>Début et fin de l’extrait — faites glisser les deux poignées sur la chanson entière</span><span>Début <b id="trim-start"></b> · fin <b id="trim-end"></b> · durée <b id="trim-len"></b></span></div>
+        <div class="trim-bar" id="trim-bar"><div class="trim-keep" id="trim-keep"></div><div class="trim-gap" id="trim-gap" title="Passage à deviner"></div><div class="trim-cut" id="trim-cut" title="Coupure"></div>
+          <button type="button" class="trim-h" id="trim-h0" aria-label="Début de l’extrait (flèches : ± 0,5 s)"></button><button type="button" class="trim-h" id="trim-h1" aria-label="Fin de l’extrait (flèches : ± 0,5 s)"></button></div>
+        <div class="trim-scale"><span>0:00</span><span id="trim-total"></span></div>
+        <div class="row" style="margin-top:12px"><button class="quiet" id="trim-reset" type="button">Réglage automatique</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Refaire l’extrait</button></div>
+      </div>
       <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p></div>
   </section>
 
@@ -463,12 +482,82 @@ function showDone() {
   $('done-lead').textContent = clip.words + (clip.words > 1 ? ' mots' : ' mot') + ' à deviner, coupure à ' + fmt(clip.cutAt) + ' dans l’extrait.' + (list ? ' Ajouté à la liste « ' + list + ' ».' : '');
   backgroundFile.value = '';
   $('done-audio').src = clip.audio; $('publish-one-status').textContent = '';
+  showTrim(clip);
   // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
   if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
   kind = 'analyze'; view('done', 4);
   config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
 $('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
+
+/* Début et fin de l'extrait, réglés à la main sur la chanson entière */
+const trim = { clip: null, start: 0, end: 0, min0: 0, max0: 0, min1: 0, max1: 0 };
+const fmt1 = (s) => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
+function showTrim(clip) {
+  const ok = clip && Number.isFinite(clip.sourceStart) && Number.isFinite(clip.sourceEnd) && Number.isInteger(clip.first) && state.words?.[clip.last] && state.duration;
+  $('trim').hidden = !ok;
+  if (!ok) return;
+  const cut = clip.sourceStart + clip.cutAt;
+  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, min0: 0, max0: Math.max(0, cut - 2), min1: cut + 1, max1: state.duration });
+  const pct = (t) => (100 * t / state.duration) + '%';
+  $('trim-cut').style.left = pct(cut);
+  $('trim-gap').style.left = pct(state.words[clip.first].t);
+  $('trim-gap').style.width = pct(Math.max(0.3, state.words[clip.last].e - state.words[clip.first].t));
+  $('trim-total').textContent = fmt(state.duration);
+  $('trim-status').textContent = '';
+  paintTrim();
+}
+function paintTrim() {
+  const pct = (t) => (100 * t / state.duration) + '%';
+  $('trim-h0').style.left = pct(trim.start); $('trim-h1').style.left = pct(trim.end);
+  $('trim-keep').style.left = pct(trim.start); $('trim-keep').style.width = pct(trim.end - trim.start);
+  $('trim-start').textContent = fmt1(trim.start); $('trim-end').textContent = fmt1(trim.end); $('trim-len').textContent = Math.round(trim.end - trim.start) + ' s';
+  const changed = Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs(trim.end - trim.clip.sourceEnd) > 0.05;
+  $('trim-apply').disabled = !changed;
+}
+function setTrim(which, t) {
+  t = Math.round(t * 10) / 10;
+  if (which === 0) trim.start = Math.min(trim.max0, Math.max(trim.min0, t));
+  else trim.end = Math.min(trim.max1, Math.max(trim.min1, t));
+  paintTrim();
+}
+// à l'arrêt d'une poignée : on écoute quelques secondes à cet endroit de la chanson
+function hearTrim(which) {
+  $('done-audio').pause();
+  if (!player.src.endsWith('/' + id + '/audio')) player.src = '/api/workshop/' + id + '/audio';
+  const from = which === 0 ? trim.start : Math.max(0, trim.end - 4);
+  stopAt = which === 0 ? trim.start + 4 : trim.end;
+  const go = () => { player.currentTime = from; player.play().catch(() => {}); };
+  player.readyState >= 1 ? go() : player.addEventListener('loadedmetadata', go, { once: true });
+}
+for (const which of [0, 1]) {
+  const h = $('trim-h' + which);
+  h.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); h.setPointerCapture(e.pointerId); h.focus();
+    const r = $('trim-bar').getBoundingClientRect();
+    const move = (ev) => setTrim(which, (ev.clientX - r.left) / r.width * state.duration);
+    const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); hearTrim(which); };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up);
+  });
+  h.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 5 : 0.5, d = { ArrowLeft: -step, ArrowRight: step }[e.key];
+    if (d === undefined) return;
+    e.preventDefault(); setTrim(which, (which ? trim.end : trim.start) + d);
+  });
+  h.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow')) hearTrim(which); });
+}
+$('trim-reset').onclick = () => applyTrim(true);
+$('trim-apply').onclick = () => applyTrim(false);
+async function applyTrim(auto) {
+  const c = trim.clip;
+  $('trim-apply').disabled = true; $('trim-reset').disabled = true; player.pause(); $('done-audio').pause();
+  try {
+    await post('/' + id + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
+      ...(auto ? {} : { start: trim.start, end: trim.end }) });
+    kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
+  } catch (error) { $('trim-status').textContent = error.message; paintTrim(); }
+  finally { $('trim-reset').disabled = false; }
+}
 
 /* Envoi vers le serveur en ligne (si PUBLISH_URL et PUBLISH_TOKEN sont réglés sur ce PC) */
 async function publish(button, status, clipIds) {

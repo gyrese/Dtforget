@@ -116,7 +116,7 @@ $('list-form').onsubmit = async (event) => {
 $('create-room').onclick = () => {
   if (!socket.connected || creatingRoom) return;
   creatingRoom = true; $('create-room').disabled = true; $('create-room').textContent = 'Création du salon…';
-  socket.emit('host:create', { listId: selectedList.id, rounds: Number(document.querySelector('[name=rounds]:checked').value) });
+  socket.emit('host:create', { listId: selectedList.id, rounds: Number(document.querySelector('[name=rounds]:checked').value), answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value) });
 };
 socket.on('host:created', ({ code, rounds, joinUrl, qr }) => {
   roomCover = coverSource(selectedList.theme, selectedList.coverImage);

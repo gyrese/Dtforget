@@ -159,17 +159,20 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     } else if (choice.type !== 'none') {
       return res.status(400).json({ error: 'Choisissez un fond valide.' });
     }
-    run(id, { cmd: 'build', first, last }, () => {
+    // début et fin de l'extrait déplacés à la main sur l'aperçu (secondes dans la chanson)
+    const job = { cmd: 'build', first, last };
+    for (const k of ['start', 'end']) if (Number.isFinite(req.body?.[k]) && req.body[k] >= 0 && req.body[k] < 3600) job[k] = req.body[k];
+    run(id, job, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
-      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, words: built.words, answer: built.answer, updatedAt: Date.now() };
+      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, bedEnd: built.bedEnd, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: built.words, answer: built.answer, updatedAt: Date.now() };
       // l'ancien extrait disparaît d'ici ; à l'envoi, il est aussi retiré du serveur en ligne
       if (replace && replace.id !== clipId) clip.replaces = replace.id;
       if (backgroundSource && !existsSync(join(clipsDir, background.file))) {
         copyFileSync(join(dirOf(id), backgroundSource), join(clipsDir, background.file));
       }
-      if (backgroundSource === 'source.mp4') {
+      if (background?.type === 'video' && background.file === id + '.mp4') { // la vidéo de la chanson suit le début choisi
         background.start = built.sourceStart ?? 0;
         background.revealStart = built.sourceRevealStart ?? 0;
       }
@@ -184,7 +187,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
         library.setSongLists(songKey(clip), [...new Set([...library.listsOf(songKey(clip)), ...kept])]);
       }
       if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
-      const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, words: last - first + 1, listId: listId || null };
+      const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, first, last, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: last - first + 1, listId: listId || null };
       return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId && c.id !== clip.replaces), summary] };
     });
     res.json({ ok: true });

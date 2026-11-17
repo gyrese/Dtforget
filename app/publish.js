@@ -62,6 +62,8 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     const clip = { id, film: c.film.trim().slice(0, 80), title: c.title.trim().slice(0, 80), audio: `/media/${id}.mp3?v=${Date.now()}`, cutAt: c.cutAt,
       words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400),
       ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}),
+      ...(Number.isFinite(c.bedEnd) && c.bedEnd > c.cutAt ? { bedEnd: c.bedEnd } : {}),
+      ...(Number.isFinite(c.sourceStart) && Number.isFinite(c.sourceEnd) ? { sourceStart: c.sourceStart, sourceEnd: c.sourceEnd } : {}),
       ...(Number.isFinite(c.updatedAt) ? { updatedAt: c.updatedAt } : {}) };
     const b = c.background;
     if (b?.type === 'youtube' && /^[\w-]{11}$/.test(b.videoId || '')) {

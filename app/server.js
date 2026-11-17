@@ -40,7 +40,7 @@ const CLIPS_DIR = join(DATA_DIR, 'clips');
 const LEGACY_CLIPS = join(here, '..', 'spike', 'out', 'ECOUTE');
 const ROUNDS = 5;          // nombre de manches par partie
 const INTRO_MS = Number(process.env.INTRO_MS || 3000);     // présentation avant l'extrait
-const ANSWER_MS = Number(process.env.ANSWER_MS || 15000);   // temps de réponse après la coupure
+const ANSWER_MS = Number(process.env.ANSWER_MS || 10000);   // chrono par défaut, après l'instrumental (réglable à la création du salon)
 const REVEAL_MS = Number(process.env.REVEAL_MS || 7000);    // durée de la révélation
 const PORT = Number(process.env.PORT || 3000);
 
@@ -178,6 +178,7 @@ function startRound(room) {
       audio: clip.audio,
       background: clip.background,
       cutAt: clip.cutAt,
+      bedEnd: bedEnd(clip), // l'instrumental s'arrête ici, le chrono prend le relais
       revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
       // le mot à trouver n'est jamais envoyé à l'écran : seulement sa place
       // mot à trouver : un tiret bas par lettre (ponctuation retirée), le texte n'est jamais envoyé
@@ -188,11 +189,24 @@ function startRound(room) {
   }, INTRO_MS));
 }
 
+// fin de l'instrumental dans le fichier : 5 s après le dernier mot à trouver
+// (les anciens extraits ont 20 s d'instrumental : on les coupe au même endroit)
+const ANSWER_TAIL = 5;
+function bedEnd(clip) {
+  if (Number.isFinite(clip.bedEnd)) return clip.bedEnd;
+  const gapEnd = Math.max(clip.cutAt, ...clip.words.filter((w) => w.gap).map((w) => w.e));
+  const fileEnd = clip.revealAt != null ? clip.revealAt - 1 : Infinity;
+  return Math.max(clip.cutAt, Math.min(gapEnd + ANSWER_TAIL, fileEnd));
+}
+
 function openAnswer(room, clip) {
   room.state = "answering";
   room.answering = true;
-  io.to(room.code).emit("answer:open", { seconds: ANSWER_MS / 1000, answerLength: clip.answer.split(" ").length });
-  room.timers.push(setTimeout(() => reveal(room, clip), ANSWER_MS));
+  // on peut répondre dès la coupure ; le chrono démarre quand l'instrumental s'arrête
+  const music = Math.max(0, bedEnd(clip) - clip.cutAt);
+  const timer = room.answerMs / 1000;
+  io.to(room.code).emit("answer:open", { seconds: music + timer, music, timer, answerLength: clip.answer.split(" ").length });
+  room.timers.push(setTimeout(() => reveal(room, clip), (music + timer) * 1000));
 }
 
 function reveal(room, clip) {
@@ -219,13 +233,14 @@ function reveal(room, clip) {
 }
 
 io.on("connection", (socket) => {
-  socket.on("host:create", ({ listId = 'disney', rounds = ROUNDS } = {}) => {
+  socket.on("host:create", ({ listId = 'disney', rounds = ROUNDS, answerSeconds } = {}) => {
     if (socket.data.code) return;
     const total = [3, 5, 10].includes(rounds) ? rounds : ROUNDS;
+    const answerMs = [5, 10, 15, 20, 30].includes(answerSeconds) ? answerSeconds * 1000 : ANSWER_MS;
     const songs = pick(total, library.clips(listId));
     if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');
     const code = code4();
-    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false };
+    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs };
     rooms.set(code, room);
     socket.join(code);
     socket.data.code = code;

@@ -2,7 +2,7 @@
 
   python atelier.py analyze <dossier> --title T --artist A   source.* -> audio, stems, paroles LRCLIB, mots alignés
   python atelier.py align   <dossier> [--lrclib ID]          réaligne sur lyrics.txt (ou sur une fiche LRCLIB)
-  python atelier.py build   <dossier> --first I --last J     fabrique clip.mp3 + clip.json pour le trou choisi
+  python atelier.py build   <dossier> --first I --last J [--start S --end E]  fabrique clip.mp3 + clip.json pour le trou choisi
 
 Progression sur stdout : lignes « @@{json} ». Les paroles ne sont jamais écrites sur stdout, seulement
 dans les fichiers du dossier (words.json, lyrics.txt, clip.json).
@@ -29,7 +29,7 @@ MAX_DURATION = 600.0  # 10 min
 TOTAL = 60.0          # durée de l'extrait
 TAIL = 5.0            # le début de l'extrait se cale comme si celui-ci finissait 5 s après le passage
 FADE = 0.04
-BED = 20.0            # après la coupure : instrumental seul, sans voix, pendant le temps de réponse
+ANSWER_TAIL = 5.0     # après la coupure : instrumental seul jusqu'à 5 s après la fin du passage, puis le chrono
 REVEAL_LEAD = 10.0    # révélation : on reprend 10 s avant le passage à deviner…
 REVEAL_TAIL = 10.0    # … et on chante le passage puis 10 s de la suite
 GAP = 1.0             # silence entre la partie jeu et la partie révélation (même fichier)
@@ -173,12 +173,16 @@ def cmd_build(a) -> None:
               if (i == 0 or words[i - 1]["line"] != w["line"]) and abs(w["start"] - 1.5 - t0) <= 4]
     if starts and t0 > 0:
         t0 = max(0.0, min(starts, key=lambda x: abs(x - 1.5 - t0)) - 1.5)
+    if a.start is not None:  # début choisi à la main : au moins 2 s avant la coupure
+        t0 = min(max(0.0, a.start), max(0.0, cut - 2.0))
 
     def col(x):
         return x[:, None] if orig.ndim == 2 else x
 
     # partie jeu : chant original jusqu'à la coupure, puis l'instrumental seul (la voix ne revient pas)
-    b1 = min(total, cut + BED)
+    b1 = min(total, lw["end"] + ANSWER_TAIL)
+    if a.end is not None:  # fin choisie à la main : au moins 1 s d'instrumental après la coupure
+        b1 = min(total, max(cut + 1.0, a.end))
     i0, i1 = int(t0 * sr), int(b1 * sr)
     t = np.arange(i0, i1) / sr
     mask = np.clip((t - (cut - FADE)) / FADE, 0, 1)
@@ -205,6 +209,8 @@ def cmd_build(a) -> None:
     dump(d / "clip.json", {
         "cutAt": round(cut - t0, 3),
         "revealAt": reveal_at,
+        "bedEnd": round(b1 - t0, 3),
+        "sourceEnd": round(b1, 3),
         "sourceStart": round(t0, 3),
         "sourceRevealStart": round(r0, 3),
         "revealDur": round(r1 - r0, 3),
@@ -224,6 +230,7 @@ def main() -> None:
     p = sub.add_parser("align"); p.add_argument("dir"); p.add_argument("--lrclib")
     p = sub.add_parser("build"); p.add_argument("dir"); p.add_argument("--first", type=int, required=True)
     p.add_argument("--last", type=int, required=True); p.add_argument("--out", default="clip.mp3")
+    p.add_argument("--start", type=float); p.add_argument("--end", type=float)
     a = ap.parse_args()
     try:
         {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build}[a.cmd](a)

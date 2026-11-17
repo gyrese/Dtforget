@@ -16,7 +16,12 @@ export function createPyWorker(spikeDir) {
       args = ['align', dir];
       if (Number.isInteger(job.lrclibId)) args.push('--lrclib', String(job.lrclibId));
       else writeFileSync(join(dir, 'lyrics_input.txt'), String(job.text || ''), 'utf8');
-    } else if (job.cmd === 'build') args = ['build', dir, '--first', String(job.first), '--last', String(job.last)];
+    } else if (job.cmd === 'build') {
+      args = ['build', dir, '--first', String(job.first), '--last', String(job.last)];
+      // bornes choisies à la main sur l'aperçu (secondes dans la chanson)
+      if (Number.isFinite(job.start)) args.push('--start', String(job.start));
+      if (Number.isFinite(job.end)) args.push('--end', String(job.end));
+    }
     else return Promise.reject(new Error('Traitement inconnu.'));
 
     return new Promise((resolve, reject) => {
