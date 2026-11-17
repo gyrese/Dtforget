@@ -175,6 +175,7 @@ function startRound(room) {
     io.to(room.hostId).emit("round:clip", {
       audio: clip.audio,
       cutAt: clip.cutAt,
+      revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
       // le mot à trouver n'est jamais envoyé à l'écran : seulement sa place
       // mot à trouver : un tiret bas par lettre (ponctuation retirée), le texte n'est jamais envoyé
       words: clip.words.map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
@@ -211,7 +212,7 @@ function reveal(room, clip) {
     } else {
       startRound(room);
     }
-  }, REVEAL_MS));
+  }, Math.max(REVEAL_MS, clip.revealDur ? clip.revealDur * 1000 + 1500 : 0))); // laisser finir la reprise chantée
 }
 
 io.on("connection", (socket) => {

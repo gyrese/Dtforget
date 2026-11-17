@@ -134,7 +134,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
-      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, words: built.words, answer: built.answer };
+      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, words: built.words, answer: built.answer };
       const at = content.findIndex((c) => c.id === clipId);
       at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
       writeJson(contentFile, content);

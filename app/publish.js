@@ -48,7 +48,8 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     if (!ok) return res.status(400).json({ error: 'Extrait invalide.' });
     if (!existsSync(join(clipsDir, id + '.mp3'))) return res.status(409).json({ error: 'Audio manquant : envoyez-le d’abord.' });
     const clip = { id, film: c.film.trim().slice(0, 80), title: c.title.trim().slice(0, 80), audio: `/media/${id}.mp3?v=${Date.now()}`, cutAt: c.cutAt,
-      words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400) };
+      words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400),
+      ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}) };
     const at = content.findIndex((x) => x.id === id);
     at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
     saveContent();

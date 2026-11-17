@@ -209,6 +209,11 @@ socket.on("round:clip", (c) => {
   requestAnimationFrame(tick);
 });
 
+// pendant la manche, l'extrait s'arrête avant la reprise chantée rangée à la fin du même fichier
+audio.addEventListener("timeupdate", () => {
+  if (clip?.revealAt != null && $("s-play").classList.contains("on") && audio.currentTime >= clip.revealAt - 0.6) audio.pause();
+});
+
 function renderLyrics() {
   const box = $("lyrics");
   box.innerHTML = "";
@@ -276,6 +281,8 @@ socket.on("answers:count", (n) => {
 
 socket.on("reveal", ({ answer, film, title, ranking }) => {
   audio.pause();
+  // reprise 10 s avant le passage, avec les paroles, jusqu'à 10 s après
+  if (clip?.revealAt != null) { audio.currentTime = clip.revealAt; audio.play().catch(() => {}); }
   $("rev-film").textContent = film + " · " + title;
   $("rev-answer").textContent = answer;
   const box = $("rev-ranking");

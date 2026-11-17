@@ -27,8 +27,12 @@ SEP = "bs_roformer"
 ASR = "large-v3"
 MAX_DURATION = 600.0  # 10 min
 TOTAL = 60.0          # durée de l'extrait
-TAIL = 5.0            # l'extrait s'arrête 5 s après la fin du passage à deviner
+TAIL = 5.0            # le début de l'extrait se cale comme si celui-ci finissait 5 s après le passage
 FADE = 0.04
+BED = 20.0            # après la coupure : instrumental seul, sans voix, pendant le temps de réponse
+REVEAL_LEAD = 10.0    # révélation : on reprend 10 s avant le passage à deviner…
+REVEAL_TAIL = 10.0    # … et on chante le passage puis 10 s de la suite
+GAP = 1.0             # silence entre la partie jeu et la partie révélation (même fichier)
 
 
 def emit(**data) -> None:
@@ -161,11 +165,7 @@ def cmd_build(a) -> None:
     orig, instr = orig[:n], instr[:n]
     total = n / sr
 
-    # la voix reste coupée jusqu'au mot suivant (les notes tenues dépassent la fin alignée)
-    nxt = words[last + 1]["start"] if last + 1 < len(words) else total
-    hole_end = max(lw["end"] + 0.05, min(nxt - 0.05, lw["end"] + 3.0))
     t1 = min(total, lw["end"] + TAIL)
-    hole_end = min(hole_end, t1)
     # l'extrait dure TOTAL secondes et finit TAIL secondes après le passage ; le début se cale
     # sur un début de ligne s'il y en a un à moins de 4 s
     t0 = max(0.0, t1 - TOTAL)
@@ -174,26 +174,43 @@ def cmd_build(a) -> None:
     if starts and t0 > 0:
         t0 = max(0.0, min(starts, key=lambda x: abs(x - 1.5 - t0)) - 1.5)
 
-    i0, i1 = int(t0 * sr), int(t1 * sr)
+    def col(x):
+        return x[:, None] if orig.ndim == 2 else x
+
+    # partie jeu : chant original jusqu'à la coupure, puis l'instrumental seul (la voix ne revient pas)
+    b1 = min(total, cut + BED)
+    i0, i1 = int(t0 * sr), int(b1 * sr)
     t = np.arange(i0, i1) / sr
-    mask = np.minimum(np.clip((t - (cut - FADE)) / FADE, 0, 1), np.clip(((hole_end + FADE) - t) / FADE, 0, 1))
-    gain = np.minimum(np.clip((t - t0) / 0.3, 0, 1) if t0 > 0 else 1.0, np.clip((t1 - t) / 0.6, 0, 1))
-    if orig.ndim == 2:
-        mask, gain = mask[:, None], (gain[:, None] if isinstance(gain, np.ndarray) else gain)
-    out = (orig[i0:i1] * (1 - mask) + instr[i0:i1] * mask) * gain
+    mask = np.clip((t - (cut - FADE)) / FADE, 0, 1)
+    gain = np.minimum(np.clip((t - t0) / 0.3, 0, 1) if t0 > 0 else 1.0, np.clip((b1 - t) / 1.5, 0, 1))
+    play = (orig[i0:i1] * col(1 - mask) + instr[i0:i1] * col(mask)) * col(gain)
+
+    # partie révélation : chant original de 10 s avant le passage jusqu'à 10 s après
+    r0, r1 = max(0.0, cut - REVEAL_LEAD), min(total, lw["end"] + REVEAL_TAIL)
+    j0, j1 = int(r0 * sr), int(r1 * sr)
+    t = np.arange(j0, j1) / sr
+    gain = np.minimum(np.clip((t - r0) / 0.3, 0, 1) if r0 > 0 else 1.0, np.clip((r1 - t) / 1.0, 0, 1))
+    rev = orig[j0:j1] * col(gain)
+
+    silence = np.zeros((int(GAP * sr),) + orig.shape[1:], dtype=orig.dtype)
+    out = np.concatenate([play, silence, rev])
+    reveal_at = round((len(play) + len(silence)) / sr, 3)
     tmp = d / "clip_tmp.wav"
     sf.write(tmp, out, sr, subtype="PCM_16")
     ffmpeg("-i", str(tmp), "-c:a", "libmp3lame", "-b:a", "192k", str(d / a.out))
     tmp.unlink()
 
-    sel = [(i, w) for i, w in enumerate(words) if t0 - 0.2 <= w["start"] <= t1]
+    # à l'écran : les paroles jusqu'au trou, rien après (la suite n'est plus chantée)
+    sel = [(i, w) for i, w in enumerate(words) if t0 - 0.2 <= w["start"] and i <= last]
     dump(d / "clip.json", {
         "cutAt": round(cut - t0, 3),
+        "revealAt": reveal_at,
+        "revealDur": round(r1 - r0, 3),
         "words": [{"t": round(max(0.0, w["start"] - t0), 3), "e": round(w["end"] - t0, 3), "x": w["text"],
                    "gap": first <= i <= last} for i, w in sel],
         "answer": " ".join(w["text"] for w in words[first:last + 1]),
     })
-    emit(done=True, cutAt=round(cut - t0, 3), duration=round(t1 - t0, 2))
+    emit(done=True, cutAt=round(cut - t0, 3), duration=round(len(out) / sr, 2))
 
 
 def main() -> None:
