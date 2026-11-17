@@ -119,6 +119,7 @@ $('create-room').onclick = () => {
   socket.emit('host:create', { listId: selectedList.id, rounds: Number(document.querySelector('[name=rounds]:checked').value) });
 };
 socket.on('host:created', ({ code, rounds, joinUrl, qr }) => {
+  roomCover = coverSource(selectedList.theme, selectedList.coverImage);
   creatingRoom = false; $('create-room').textContent = 'Créer le salon →'; $('code').textContent = code; $('players').replaceChildren(); $('start').disabled = true;
   if (qr) $('qr').src = qr;
   $('join-url').textContent = joinUrl || '';

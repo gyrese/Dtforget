@@ -3,6 +3,7 @@ import express from 'express';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, copyFileSync, rmSync, readdirSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { BACKGROUND_EXT, BACKGROUND_FILE, receiveBackground, youtubeId } from './background.js';
 import { songKey } from './library.js';
 
 const EXT = new Set(['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.opus', '.aac', '.mp4', '.webm', '.mkv', '.mov', '.avi']);
@@ -96,7 +97,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
 
   router.get('/:id', (req, res) => {
     const m = meta(req.params.id);
-    const state = { id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null, step: jobs.get(m.id)?.step || null, duration: m.duration, lyrics: m.lyrics || null, clips: m.clips || [] };
+    const state = { id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null, step: jobs.get(m.id)?.step || null, duration: m.duration, background: m.background, sourceVideo: existsSync(join(dirOf(m.id), 'source.mp4')), lyrics: m.lyrics || null, clips: m.clips || [] };
     const wordsFile = join(dirOf(m.id), 'words.json');
     if (m.status === 'ready' && existsSync(wordsFile)) state.words = readJson(wordsFile).map((w) => ({ x: w.text, t: w.start, e: w.end, l: w.line, u: w.uncertain }));
     res.json(state);
@@ -120,6 +121,13 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
     res.json({ ok: true });
   });
 
+  router.put('/:id/background', (req, res) => {
+    const ext = extname(String(req.query.name || '')).slice(1).toLowerCase();
+    if (!BACKGROUND_EXT.test(ext)) return res.status(400).json({ error: 'Choisissez une image JPG, PNG, WebP ou AVIF, ou une vidéo MP4 ou WebM.' });
+    const file = randomUUID() + '.' + ext;
+    return receiveBackground(req, res, join(dirOf(req.params.id), file), { file });
+  });
+
   // Fabrication de l'extrait et ajout à la bibliothèque
   router.post('/:id/clip', guardBusy, (req, res) => {
     const id = req.params.id, m = meta(id);
@@ -130,17 +138,42 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner 
     if (!title || !film) return res.status(400).json({ error: 'Indiquez le titre et l’artiste (ou le film).' });
     const remoteList = req.body?.list && req.body.list.id === listId ? req.body.list : null;
     if (listId && !remoteList && !library.get().lists.some((l) => l.id === listId)) return res.status(400).json({ error: 'Cette liste n’existe plus.' });
+    const choice = req.body?.background ?? m.background ?? { type: 'auto' };
+    let background = null, backgroundSource = null;
+    if (choice.type === 'youtube') {
+      const videoId = youtubeId(choice.url);
+      if (!videoId) return res.status(400).json({ error: 'Indiquez un lien YouTube valide.' });
+      background = { type: 'youtube', videoId };
+    } else if (choice.type === 'file' && BACKGROUND_FILE.test(choice.file || '') && existsSync(join(dirOf(id), choice.file))) {
+      backgroundSource = choice.file;
+      background = { type: /\.(mp4|webm)$/.test(choice.file) ? 'video' : 'image', file: choice.file };
+    } else if (choice.type === 'auto') {
+      if (existsSync(join(dirOf(id), 'source.mp4'))) {
+        backgroundSource = 'source.mp4';
+        background = { type: 'video', file: id + '.mp4' };
+      }
+    } else if (choice.type !== 'none') {
+      return res.status(400).json({ error: 'Choisissez un fond valide.' });
+    }
     run(id, { cmd: 'build', first, last }, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
       const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, words: built.words, answer: built.answer };
+      if (backgroundSource && !existsSync(join(clipsDir, background.file))) {
+        copyFileSync(join(dirOf(id), backgroundSource), join(clipsDir, background.file));
+      }
+      if (backgroundSource === 'source.mp4') {
+        background.start = built.sourceStart ?? 0;
+        background.revealStart = built.sourceRevealStart ?? 0;
+      }
+      if (background) clip.background = background;
       const at = content.findIndex((c) => c.id === clipId);
       at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
       writeJson(contentFile, content);
       if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
       const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, words: last - first + 1, listId: listId || null };
-      return { status: 'ready', title, artist: film, clips: [...(m.clips || []).filter((c) => c.id !== clipId), summary] };
+      return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId), summary] };
     });
     res.json({ ok: true });
   });

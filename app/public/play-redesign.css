@@ -1,8 +1,27 @@
-:root{color-scheme:light;--pink:#bd3827;--sun:#bd3827;--cyan:#286151;--ink:#292820}
-html,body{background:#f4efdf;color:var(--ink);font-family:'Trebuchet MS',Arial,sans-serif}
-.screen{padding: max(32px,env(safe-area-inset-top)) 24px max(30px,env(safe-area-inset-bottom));gap:28px}
-.brand{font-family:'Trebuchet MS',sans-serif;font-size:11px;letter-spacing:1.5px;border-bottom:2px solid var(--ink);padding-bottom:20px;color:var(--pink)}
-h1{font:900 54px/.98 Georgia,serif;letter-spacing:-2px;text-transform:none}.lead{color:#686253;line-height:1.7}.lbl{color:#686253;font-size:11px}
-.inp{background:#fffaf0;color:var(--ink);border:1px solid #b4a991;border-radius:4px;font-family:inherit;font-size:20px}.inp::placeholder{color:#817866}.inp.code{font-family:Georgia,serif;color:var(--pink)}.inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #28615125}
-.btn{background:var(--pink);color:#fffaf0;border-radius:4px;box-shadow:none;font-family:inherit;font-size:16px;letter-spacing:0;text-transform:none;min-height:58px}.btn:focus-visible{outline-color:var(--cyan)}
-.card{background:#ebe2ce;border:1px solid #c9bfaa;border-radius:4px;padding:24px 20px}.big,.pts{font-family:Georgia,serif}.hint{font-size:11px}.err{background:#f6ddd4;border:1px solid var(--pink);border-radius:4px;color:#882717}.status{line-height:1.6}.wait-dot i{width:9px;height:9px}
+/* DtForget — Plateau de nuit · téléphone. Une manette : un champ, un gros bouton, rien d'autre. */
+:root{color-scheme:dark;--pink:var(--spot);--sun:var(--spot);--cyan:var(--led);--ink:var(--on-spot);--soft:var(--haze)}
+html,body{background:var(--night);color:var(--chalk);font-family:var(--f-text)}
+body{background:var(--spotlight),var(--night);min-height:100dvh}
+.screen{padding:max(28px,env(safe-area-inset-top)) 22px max(28px,env(safe-area-inset-bottom));gap:24px;min-height:100dvh}
+.brand{font:700 12px var(--f-text);letter-spacing:.2em;text-transform:uppercase;color:var(--spot);padding-bottom:16px;border-bottom:1px solid var(--rule)}
+h1{font:900 64px/.9 var(--f-display);text-transform:uppercase;letter-spacing:.005em;color:var(--chalk)}
+.lead{color:var(--haze);line-height:1.6;font-size:17px}
+.lbl{font:700 12px var(--f-text);letter-spacing:.18em;text-transform:uppercase;color:var(--haze)}
+.inp{min-height:60px;background:var(--deck-2);color:var(--chalk);border:1px solid var(--rule-strong);border-radius:var(--r-md);font:500 20px var(--f-text);padding:14px 18px}
+.inp::placeholder{color:var(--haze);font-weight:400}
+.inp:focus{border-color:var(--led);box-shadow:0 0 0 3px #46d9ec40}
+.inp.code{font:700 36px var(--f-mono);letter-spacing:.5em;padding-left:calc(18px + .5em);color:var(--spot);text-align:center;min-height:76px}
+.inp.code::placeholder{color:#ffb62747}
+.btn{min-height:64px;border-radius:var(--r-md);background:var(--spot);color:var(--on-spot);box-shadow:none;font:800 17px var(--f-text);letter-spacing:.08em;text-transform:uppercase}
+.btn:active:not(:disabled){background:var(--spot-hi);transform:scale(.98)}
+.btn:focus-visible{outline:3px solid var(--led);outline-offset:4px}
+.err{background:#ff5a661a;border:1px solid var(--live);border-radius:var(--r-md);color:#ffc2c7;font-weight:600}
+.card{background:var(--deck);border:1px solid var(--rule);border-radius:var(--r-lg);padding:24px 20px}
+.hint{font:700 12px var(--f-text);letter-spacing:.18em;text-transform:uppercase;color:var(--haze)}
+.big{font:900 34px/1.05 var(--f-display);text-transform:uppercase;color:var(--chalk);margin-top:10px}
+.status{color:var(--hit);font-weight:700;line-height:1.6}
+.pts{font:900 96px/1 var(--f-display);color:var(--spot);text-shadow:0 0 40px #ffb62740}
+#res-answer{color:var(--led)}
+#v-answer .card{border-color:var(--led);background:linear-gradient(180deg,#46d9ec12,var(--deck))}
+.wait-dot i{width:10px;height:10px;background:var(--spot)}
+.wait-dot i:nth-child(2){background:var(--spot)}.wait-dot i:nth-child(3){background:var(--led)}

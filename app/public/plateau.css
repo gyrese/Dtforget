@@ -1,0 +1,44 @@
+/* DtForget — Plateau de nuit. Jetons partagés par l'écran hôte, le téléphone, l'atelier et l'admin.
+   Polices servies en local (soirées sans Internet) : Big Shoulders Display, Archivo, JetBrains Mono — SIL OFL, voir /fonts/OFL.txt. */
+@font-face{font-family:'Big Shoulders Display';font-weight:800;font-display:swap;src:url(/fonts/big-shoulders-display-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'Big Shoulders Display';font-weight:900;font-display:swap;src:url(/fonts/big-shoulders-display-latin-900-normal.woff2) format('woff2')}
+@font-face{font-family:Archivo;font-weight:400;font-display:swap;src:url(/fonts/archivo-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:Archivo;font-weight:500;font-display:swap;src:url(/fonts/archivo-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:Archivo;font-weight:700;font-display:swap;src:url(/fonts/archivo-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:Archivo;font-weight:800;font-display:swap;src:url(/fonts/archivo-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-weight:700;font-display:swap;src:url(/fonts/jetbrains-mono-latin-700-normal.woff2) format('woff2')}
+
+:root{
+  color-scheme:dark;
+  /* surfaces : la salle éteinte */
+  --night:#0a0c14;        /* fond de scène */
+  --deck:#121624;         /* cartes, panneaux */
+  --deck-2:#1a2032;       /* champs, survol */
+  --deck-3:#242b42;       /* élément choisi */
+  --rule:#2a3149;         /* filets décoratifs */
+  --rule-strong:#68739a;  /* bordures de contrôles (3:1) */
+  /* encres */
+  --chalk:#f5f1e8;        /* texte principal */
+  --haze:#aab0c6;         /* texte secondaire */
+  --dim:#8a91ab;          /* paroles à venir */
+  /* lumières */
+  --spot:#ffb627;         /* projecteur : action, mots chantés */
+  --spot-hi:#ffcb62;      /* survol de l'action */
+  --on-spot:#1b1203;      /* texte sur projecteur */
+  --led:#46d9ec;          /* cases lumineuses : trous, réponses, focus */
+  --live:#ff5a66;         /* en direct, erreurs */
+  --hit:#5fe08f;          /* bonne réponse, connecté */
+  /* typo */
+  --f-display:'Big Shoulders Display',Impact,'Arial Narrow',sans-serif;
+  --f-text:Archivo,'Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',Consolas,ui-monospace,monospace;
+  /* forme */
+  --r-sm:6px;--r-md:10px;--r-lg:16px;--r-pill:999px;
+  --glow-spot:0 0 0 1px #ffb62755,0 10px 40px -8px #ffb62766;
+  --spotlight:radial-gradient(70% 55% at 50% -12%,#ffb6271f 0%,#ffb62708 45%,transparent 75%);
+  /* aliases historiques, pour les règles encore écrites avec */
+  --canvas:var(--night);--paper:var(--deck-2);--surface:var(--deck);--ink:var(--chalk);--muted:var(--haze);--edge:var(--rule);
+  --red:var(--spot);--green:var(--led);--sun:var(--spot);--cyan:var(--led);--soft:var(--haze);--pink:var(--spot);--lime:var(--spot);--lavender:var(--led)
+}
+.wordmark,.brand{font-family:var(--f-display);font-weight:900;text-transform:uppercase;letter-spacing:.02em;color:var(--chalk);text-decoration:none}
+.wordmark span,.brand span{color:var(--spot)}

@@ -174,6 +174,7 @@ function startRound(room) {
     room.state = "playing";
     io.to(room.hostId).emit("round:clip", {
       audio: clip.audio,
+      background: clip.background,
       cutAt: clip.cutAt,
       revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
       // le mot à trouver n'est jamais envoyé à l'écran : seulement sa place

@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Choisissez votre univers musical, invitez vos amis et retrouvez les paroles dans DtForget."><meta name="site-kind" content="gaming"><meta name="page-type" content="software"><title>N'oubliez pas les paroles · Écran hôte</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Unbounded:wght@700;900&display=swap">
 <style>
 :root{--pink:#ff3d9a;--cyan:#27e8ff;--sun:#ffd23f;--soft:#c4b5de;--ink:#14061f}
 *{box-sizing:border-box}
@@ -51,10 +50,11 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 <link rel="icon" href="/assets/brand-mark.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/host-menu.css"><link rel="stylesheet" href="/host-redesign.css">
+<link rel="stylesheet" href="/plateau.css"><link rel="stylesheet" href="/host-menu.css"><link rel="stylesheet" href="/host-redesign.css">
 </head>
 <body>
 <div class="stage">
+  <div id="stage-background" aria-hidden="true"></div>
   <div class="orb o1"></div><div class="orb o2"></div>
 
   <section class="screen on" id="s-menu">
@@ -73,7 +73,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
   <section class="screen" id="s-library">
     <div class="top"><button class="quiet back-menu">← Les univers</button><button class="quiet" id="new-list">+ Nouvelle liste</button></div>
     <div class="editor-heading"><h1>Bibliothèque</h1></div>
-    <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · sauge et forêt</option><option value="rock">Rock · brique et abricot</option><option value="mix">Mix · moutarde et olive</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Tout sélectionner</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><div id="song-picker"></div><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
+    <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · projecteur ambre</option><option value="rock">Rock · rouge scène</option><option value="mix">Mix · cases cyan</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Tout sélectionner</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><div id="song-picker"></div><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
   </section>
   <div class="notice" id="notice" role="status" hidden></div>
   <section class="screen" id="s-lobby">
@@ -129,18 +129,22 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
 
 <audio id="audio" preload="auto"></audio>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/stage-background.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const socket = io();
 // l'atelier n'existe que sur le PC qui a la carte graphique, pas sur le serveur en ligne
 fetch('/api/config').then((r) => r.json()).then((c) => { $('add-media').hidden = !c.atelier; }).catch(() => {});
 const audio = $("audio");
+const background = createStageBackground($("stage-background"), audio);
 let clip = null;
+let roomCover = null;
 let lineGroups = [];
 
 function show(id) {
   const previous = document.querySelector(".screen.on")?.id;
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
+  background.screen(id);
   document.dispatchEvent(new CustomEvent("host:screen", {detail:{id,previous}}));
   if (previous !== id) { window.scrollTo(0,0); const heading = $(id).querySelector("h1, .top button, button"); if (heading) { heading.tabIndex = heading.tabIndex < 0 ? -1 : heading.tabIndex; heading.focus({preventScroll:true}); } }
 }
@@ -204,6 +208,7 @@ socket.on("round:clip", (c) => {
   $("lyrics").scrollTop = 0;
   audio.src = c.audio;
   audio.currentTime = 0;
+  background.set(c, roomCover);
   show("s-play");
   audio.play().catch(() => {});
   requestAnimationFrame(tick);

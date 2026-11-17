@@ -205,6 +205,8 @@ def cmd_build(a) -> None:
     dump(d / "clip.json", {
         "cutAt": round(cut - t0, 3),
         "revealAt": reveal_at,
+        "sourceStart": round(t0, 3),
+        "sourceRevealStart": round(r0, 3),
         "revealDur": round(r1 - r0, 3),
         "words": [{"t": round(max(0.0, w["start"] - t0), 3), "e": round(w["end"] - t0, 3), "x": w["text"],
                    "gap": first <= i <= last} for i, w in sel],

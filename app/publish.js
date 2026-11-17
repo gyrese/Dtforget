@@ -3,10 +3,11 @@
 //   VPS : IMPORT_TOKEN                 -> PUT  /api/import/:clipId/audio puis PUT /api/import/:clipId
 import express from 'express';
 import { spawnSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { createReadStream, statSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { join, basename, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
+import { BACKGROUND_FILE, receiveBackground } from './background.js';
 import { songKey } from './library.js';
 
 const CLIP_ID = /^[\w.-]{1,120}$/;
@@ -40,6 +41,11 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     out.on('finish', () => { if (failed) return; if (!size) return fail(400, 'Fichier vide.'); renameSync(file + '.part', file); res.json({ ok: true }); });
     req.pipe(out);
   });
+  importer.put('/:clipId/background/:file', (req, res) => {
+    const { file } = req.params;
+    if (!BACKGROUND_FILE.test(file)) return res.status(400).json({ error: 'Nom de fond invalide.' });
+    return receiveBackground(req, res, join(clipsDir, file), { ok: true });
+  });
   importer.put('/:clipId', express.json({ limit: '6mb' }), (req, res) => {
     const id = req.params.clipId, c = req.body?.clip;
     const ok = c && typeof c.film === 'string' && c.film.trim() && typeof c.title === 'string' && c.title.trim() && typeof c.answer === 'string' && c.answer
@@ -50,6 +56,18 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     const clip = { id, film: c.film.trim().slice(0, 80), title: c.title.trim().slice(0, 80), audio: `/media/${id}.mp3?v=${Date.now()}`, cutAt: c.cutAt,
       words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400),
       ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}) };
+    const b = c.background;
+    if (b?.type === 'youtube' && /^[\w-]{11}$/.test(b.videoId || '')) {
+      clip.background = { type: 'youtube', videoId: b.videoId };
+    } else if (b && BACKGROUND_FILE.test(b.file || '')) {
+      if (!existsSync(join(clipsDir, b.file))) return res.status(409).json({ error: 'Fond manquant.' });
+      clip.background = {
+        type: /\.(mp4|webm)$/.test(b.file) ? 'video' : 'image',
+        file: b.file,
+        ...(Number.isFinite(b.start) && b.start >= 0 ? { start: b.start } : {}),
+        ...(Number.isFinite(b.revealStart) && b.revealStart >= 0 ? { revealStart: b.revealStart } : {}),
+      };
+    } else if (b != null) return res.status(400).json({ error: 'Fond invalide.' });
     const at = content.findIndex((x) => x.id === id);
     at >= 0 ? content.splice(at, 1, clip) : content.push(clip);
     saveContent();
@@ -82,6 +100,17 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
       const base = `${target}/api/import/${encodeURIComponent(clip.id)}`;
       const check = async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'erreur ' + r.status); };
       await check(await fetch(base + '/audio', { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/octet-stream' }, body: readFileSync(file), signal: AbortSignal.timeout(120000) }));
+      if (clip.background?.file) {
+        const name = clip.background.file;
+        if (!BACKGROUND_FILE.test(name)) throw new Error('fond invalide');
+        const asset = join(clipsDir, name);
+        const size = statSync(asset).size;
+        await check(await fetch(base + '/background/' + name, {
+          method: 'PUT',
+          headers: { ...auth, 'Content-Type': 'application/octet-stream', 'Content-Length': String(size) },
+          body: createReadStream(asset), duplex: 'half', signal: AbortSignal.timeout(600000),
+        }));
+      }
       const { audio, ...meta } = clip;
       await check(await fetch(base, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ clip: meta, lists }), signal: AbortSignal.timeout(60000) }));
     } finally { if (temp) rmSync(temp, { force: true }); }
