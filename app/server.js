@@ -15,6 +15,7 @@ import { createCatalog } from './catalog.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
 import { randomUUID, randomInt } from 'node:crypto';
+import { bedEnd, lastGap } from './timing.js';
 
 // Adresse IPv4 du PC sur le réseau local (pour que le téléphone puisse ouvrir l'adresse du QR code).
 function lanAddress() {
@@ -189,19 +190,6 @@ function startRound(room) {
     });
     room.timers.push(setTimeout(() => openAnswer(room, clip), clip.cutAt * 1000));
   }, INTRO_MS));
-}
-
-// fin de l'instrumental dans le fichier : 5 s après le dernier mot à trouver
-const ANSWER_TAIL = 5;
-const lastGap = (clip) => clip.words.findLastIndex((w) => w.gap);
-function bedEnd(clip) {
-  if (Number.isFinite(clip.bedEnd)) return clip.bedEnd;
-  const i = lastGap(clip), gapEnd = Math.max(clip.cutAt, clip.words[i]?.e ?? 0);
-  if (clip.revealAt != null) return Math.max(clip.cutAt, Math.min(gapEnd + ANSWER_TAIL, clip.revealAt - 1));
-  // extrait d'avant la reprise chantée : la voix y revient juste après le trou (au mot suivant, 3 s au plus),
-  // on s'arrête donc là ; pour avoir les 5 s d'instrumental, refaire l'extrait dans l'atelier
-  const next = clip.words[i + 1]?.t ?? Infinity;
-  return Math.max(clip.cutAt + 0.5, gapEnd + 0.05, Math.min(next - 0.05, gapEnd + 3));
 }
 
 function openAnswer(room, clip) {

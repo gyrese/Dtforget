@@ -157,6 +157,7 @@ audio{width:100%;margin-top:18px}
   <section id="v-done" hidden>
     <div class="card"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p>
       <audio id="done-audio" controls preload="auto"></audio>
+      <div class="row" id="done-parts" hidden style="margin-top:10px"><button class="quiet" id="hear-round" type="button">▶ La manche (sans voix après la coupure)</button><button class="quiet" id="hear-reveal" type="button">▶ La révélation (reprise chantée)</button></div>
       <div class="trim" id="trim" hidden>
         <div class="trim-head"><span>Début et fin de l’extrait — faites glisser les deux poignées sur la chanson entière</span><span>Début <b id="trim-start"></b> · fin <b id="trim-end"></b> · durée <b id="trim-len"></b></span></div>
         <div class="trim-bar" id="trim-bar"><div class="trim-keep" id="trim-keep"></div><div class="trim-gap" id="trim-gap" title="Passage à deviner"></div><div class="trim-cut" id="trim-cut" title="Coupure"></div>
@@ -483,11 +484,23 @@ function showDone() {
   backgroundFile.value = '';
   $('done-audio').src = clip.audio; $('publish-one-status').textContent = '';
   showTrim(clip);
+  doneParts = Number.isFinite(clip.bedEnd) && Number.isFinite(clip.revealAt) ? { bedEnd: clip.bedEnd, revealAt: clip.revealAt } : null;
+  $('done-parts').hidden = !doneParts;
   // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
   if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
   kind = 'analyze'; view('done', 4);
   config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
+// le fichier contient la manche puis, après une seconde de silence, la reprise chantée de la révélation :
+// l'aperçu s'arrête comme en jeu, à la fin de l'instrumental ; la révélation s'écoute à part
+let doneParts = null;
+const doneAudio = $('done-audio');
+doneAudio.addEventListener('timeupdate', () => {
+  if (doneParts && doneAudio.currentTime >= doneParts.bedEnd && doneAudio.currentTime < doneParts.revealAt - 0.05) { doneAudio.pause(); doneAudio.currentTime = doneParts.bedEnd; }
+});
+const hear = (t) => { player.pause(); doneAudio.currentTime = t; doneAudio.play().catch(() => {}); };
+$('hear-round').onclick = () => hear(0);
+$('hear-reveal').onclick = () => hear(doneParts.revealAt);
 $('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
 
 /* Début et fin de l'extrait, réglés à la main sur la chanson entière */
@@ -498,7 +511,7 @@ function showTrim(clip) {
   $('trim').hidden = !ok;
   if (!ok) return;
   const cut = clip.sourceStart + clip.cutAt;
-  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, min0: 0, max0: Math.max(0, cut - 2), min1: cut + 1, max1: state.duration });
+  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, min0: 0, max0: Math.max(0, cut - 2), min1: Math.max(cut + 1, state.words[clip.last].e + 0.5), max1: state.duration });
   const pct = (t) => (100 * t / state.duration) + '%';
   $('trim-cut').style.left = pct(cut);
   $('trim-gap').style.left = pct(state.words[clip.first].t);
@@ -642,13 +655,13 @@ function renderLibrary() {
   $('drafts-box').hidden = !local.drafts.length;
   $('drafts').replaceChildren(...local.drafts.map(draftRow));
 }
-function playButton(src, from) {
+function playButton(src, from, stop) {
   const b = el('button', 'quiet play', '▶'); b.type = 'button'; b.setAttribute('aria-label', 'Écouter');
   b.onclick = () => {
     const same = player.dataset.lib === src;
     document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; });
     if (same && !player.paused) { player.pause(); return; }
-    stopAt = null;
+    stopAt = stop ?? null; // la manche seulement : pas la reprise chantée rangée après dans le fichier
     if (!same) { player.src = src; player.dataset.lib = src; }
     const start = () => { player.currentTime = from || 0; player.play().catch(() => {}); b.textContent = '■'; };
     player.readyState >= 1 && same ? start() : player.addEventListener('loadedmetadata', start, { once: true });
@@ -676,7 +689,7 @@ function clipRow(c, s, listName) {
   }
   const del = el('button', 'quiet', 'Supprimer'); del.type = 'button'; del.onclick = () => removeLocal(c, s);
   acts.append(del);
-  li.append(playButton(c.audio, Math.max(0, (c.cutAt || 0) - 8)), whoBlock(c, listName), tag, acts);
+  li.append(playButton(c.audio, Math.max(0, (c.cutAt || 0) - 8), c.bedEnd), whoBlock(c, listName), tag, acts);
   return li;
 }
 function remoteRow(r, listName) {
@@ -688,7 +701,7 @@ function remoteRow(r, listName) {
     try { await removeRemote(r.id); showLibrary(); } catch (error) { $('lib-status').textContent = error.message; }
   };
   acts.append(del);
-  li.append(playButton(new URL(r.audio, lib.online.target).href, 0), whoBlock(r, listName), el('span', 'tag off', 'Seulement en ligne'), acts);
+  li.append(playButton(new URL(r.audio, lib.online.target).href, Math.max(0, (r.cutAt || 0) - 8), r.revealAt != null ? r.revealAt - 1 : null), whoBlock(r, listName), el('span', 'tag off', 'Seulement en ligne'), acts);
   return li;
 }
 const STATUS = { working: 'Traitement en cours', needs_lyrics: 'Paroles à choisir', ready: 'Passage à choisir', error: 'Erreur' };

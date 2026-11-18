@@ -6,6 +6,7 @@ import { join, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BACKGROUND_EXT, BACKGROUND_FILE, receiveBackground, youtubeId } from './background.js';
 import { songKey } from './library.js';
+import { bedEnd } from './timing.js';
 
 const MEDIA_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const mediaOf = (clipId) => clipId.split('__')[0];
@@ -40,7 +41,9 @@ export function createCatalog({ content, contentFile, library, clipsDir, worksho
 
   const summary = (c) => ({
     id: c.id, title: c.title, film: c.film, answer: c.answer, audio: c.audio, cutAt: c.cutAt,
-    background: c.background || null, updatedAt: c.updatedAt || null, lists: library.listsOf(songKey(c)),
+    background: c.background || null, updatedAt: c.updatedAt || null,
+    // fin de la musique de jeu : le fichier continue ensuite avec la reprise chantée de la révélation
+    bedEnd: bedEnd(c), revealAt: c.revealAt ?? null, lists: library.listsOf(songKey(c)),
     media: existsSync(metaFile(mediaOf(c.id))) ? mediaOf(c.id) : null,
   });
 

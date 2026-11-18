@@ -187,7 +187,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
         library.setSongLists(songKey(clip), [...new Set([...library.listsOf(songKey(clip)), ...kept])]);
       }
       if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
-      const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, first, last, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: last - first + 1, listId: listId || null };
+      const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, bedEnd: built.bedEnd, revealAt: built.revealAt, first, last, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: last - first + 1, listId: listId || null };
       return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId && c.id !== clip.replaces), summary] };
     });
     res.json({ ok: true });

@@ -181,8 +181,8 @@ def cmd_build(a) -> None:
 
     # partie jeu : chant original jusqu'à la coupure, puis l'instrumental seul (la voix ne revient pas)
     b1 = min(total, lw["end"] + ANSWER_TAIL)
-    if a.end is not None:  # fin choisie à la main : au moins 1 s d'instrumental après la coupure
-        b1 = min(total, max(cut + 1.0, a.end))
+    if a.end is not None:  # fin choisie à la main : jamais avant la fin du passage à deviner
+        b1 = min(total, max(cut + 1.0, lw["end"] + 0.5, a.end))
     i0, i1 = int(t0 * sr), int(b1 * sr)
     t = np.arange(i0, i1) / sr
     mask = np.clip((t - (cut - FADE)) / FADE, 0, 1)
