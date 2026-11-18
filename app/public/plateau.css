@@ -42,3 +42,9 @@
 }
 .wordmark,.brand{font-family:var(--f-display);font-weight:900;text-transform:uppercase;letter-spacing:.02em;color:var(--chalk);text-decoration:none}
 .wordmark span,.brand span{color:var(--spot)}
+
+/* Identité : une note dans une bulle de paroles. Dimensions réservées, SVG autonomes. */
+.brand.brand-home{display:inline-flex;align-items:center;flex:0 0 auto;min-height:44px;line-height:1;letter-spacing:normal}
+.brand .brand-logo{display:block;width:181px;height:36px;max-width:100%;object-fit:contain}
+.brand.brand-intro{display:flex;align-items:flex-start;flex-direction:column;gap:12px}
+.brand .brand-caption{color:var(--spot);font:700 11px/1.5 var(--f-text);letter-spacing:.16em}

@@ -58,7 +58,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
   <div class="orb o1"></div><div class="orb o2"></div>
 
   <section class="screen on" id="s-menu">
-    <header class="menu-header"><a class="brand" href="/host.html">dt<span>forget</span></a><div class="header-actions"><span class="connection" id="connection">Connexion…</span><a class="quiet" id="add-media" hidden style="text-decoration:none" href="/atelier.html">+ Ajouter une chanson</a><button class="quiet" id="manage">Bibliothèque ↗</button><button class="quiet" id="fullscreen" aria-label="Passer en plein écran">⛶</button></div></header>
+    <header class="menu-header"><a class="brand brand-home" href="/host.html" aria-label="DtForget — accueil"><img class="brand-logo" src="/assets/brand-logo.svg" alt="DtForget" width="322" height="64"></a><div class="header-actions"><span class="connection" id="connection">Connexion…</span><a class="quiet" id="add-media" hidden style="text-decoration:none" href="/atelier.html">+ Ajouter une chanson</a><button class="quiet" id="manage">Bibliothèque ↗</button><button class="quiet" id="fullscreen" aria-label="Passer en plein écran">⛶</button></div></header>
     <div class="section-heading"><h1>Choisissez une playlist.</h1></div>
     <div class="hero" data-theme="magic"><img class="hero-art" src="/assets/record-magic.svg" alt=""><div class="hero-shade"></div><div class="hero-copy"><h2 id="selected-title">Disney</h2><div class="hero-meta" id="selected-meta">Chargement de la collection…</div><div class="hero-actions"><button class="btn" id="explore-universe" disabled>Choisir →</button><button class="quiet" id="edit-featured" disabled>Modifier</button></div></div><span class="hero-index" aria-hidden="true">01 / 03</span></div>
     <div class="collection-label"><span>PLAYLISTS</span><span id="library-count"></span></div>
@@ -145,6 +145,8 @@ let lineGroups = [];
 
 function show(id) {
   const previous = document.querySelector(".screen.on")?.id;
+  // la musique n'appartient qu'à la manche et à sa révélation : tout autre écran la coupe
+  if (id !== "s-play" && id !== "s-reveal") { audio.pause(); audio.volume = 1; }
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
   background.screen(id);
   document.dispatchEvent(new CustomEvent("host:screen", {detail:{id,previous}}));
