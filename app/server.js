@@ -129,14 +129,14 @@ function lcs(a, b) {
   return dp[a.length][b.length];
 }
 
+// 2 points pour la réponse exacte, 1 point si plus de la moitié des mots sont justes, dans l'ordre
+// (majuscules, accents et ponctuation ignorés)
 function score(answerText, expectedText) {
   const exp = tokens(expectedText);
   const got = tokens(answerText || "");
-  if (!exp.length) return 0;
-  // pénalité des mots en trop, sans bonus de vitesse
-  const hits = lcs(got, exp);
-  const extra = Math.max(0, got.length - exp.length);
-  return Math.max(0, Math.round((100 * (hits - 0.5 * extra)) / exp.length));
+  if (!exp.length || !got.length) return 0;
+  if (got.join(" ") === exp.join(" ")) return 2;
+  return lcs(got, exp) / exp.length > 0.5 ? 1 : 0;
 }
 
 function pick(n, source = CONTENT) {
