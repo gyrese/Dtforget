@@ -14,7 +14,7 @@ import { createAdmin } from './admin.js';
 import { createCatalog } from './catalog.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 
 // Adresse IPv4 du PC sur le réseau local (pour que le téléphone puisse ouvrir l'adresse du QR code).
 function lanAddress() {
@@ -41,7 +41,6 @@ const LEGACY_CLIPS = join(here, '..', 'spike', 'out', 'ECOUTE');
 const ROUNDS = 5;          // nombre de manches par partie
 const INTRO_MS = Number(process.env.INTRO_MS || 3000);     // présentation avant l'extrait
 const ANSWER_MS = Number(process.env.ANSWER_MS || 10000);   // chrono par défaut, après l'instrumental (réglable à la création du salon)
-const REVEAL_MS = Number(process.env.REVEAL_MS || 7000);    // durée de la révélation
 const PORT = Number(process.env.PORT || 3000);
 
 const app = express();
@@ -166,6 +165,7 @@ function startRound(room) {
   room.state = "intro";
   room.answering = false;
   for (const p of room.players.values()) p.answer = null;
+  pushRemote(room);
   io.to(room.code).emit("round:intro", {
     round: room.round + 1,
     total: room.songs.length,
@@ -174,6 +174,7 @@ function startRound(room) {
   });
   room.timers.push(setTimeout(() => {
     room.state = "playing";
+    pushRemote(room);
     io.to(room.hostId).emit("round:clip", {
       audio: clip.audio,
       background: clip.background,
@@ -182,7 +183,8 @@ function startRound(room) {
       revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
       // le mot à trouver n'est jamais envoyé à l'écran : seulement sa place
       // mot à trouver : un tiret bas par lettre (ponctuation retirée), le texte n'est jamais envoyé
-      words: clip.words.map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
+      // rien après le trou : la suite n'est plus chantée pendant la manche
+      words: clip.words.slice(0, lastGap(clip) + 1).map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
       answerLength: clip.answer.split(" ").length,
     });
     room.timers.push(setTimeout(() => openAnswer(room, clip), clip.cutAt * 1000));
@@ -190,13 +192,16 @@ function startRound(room) {
 }
 
 // fin de l'instrumental dans le fichier : 5 s après le dernier mot à trouver
-// (les anciens extraits ont 20 s d'instrumental : on les coupe au même endroit)
 const ANSWER_TAIL = 5;
+const lastGap = (clip) => clip.words.findLastIndex((w) => w.gap);
 function bedEnd(clip) {
   if (Number.isFinite(clip.bedEnd)) return clip.bedEnd;
-  const gapEnd = Math.max(clip.cutAt, ...clip.words.filter((w) => w.gap).map((w) => w.e));
-  const fileEnd = clip.revealAt != null ? clip.revealAt - 1 : Infinity;
-  return Math.max(clip.cutAt, Math.min(gapEnd + ANSWER_TAIL, fileEnd));
+  const i = lastGap(clip), gapEnd = Math.max(clip.cutAt, clip.words[i]?.e ?? 0);
+  if (clip.revealAt != null) return Math.max(clip.cutAt, Math.min(gapEnd + ANSWER_TAIL, clip.revealAt - 1));
+  // extrait d'avant la reprise chantée : la voix y revient juste après le trou (au mot suivant, 3 s au plus),
+  // on s'arrête donc là ; pour avoir les 5 s d'instrumental, refaire l'extrait dans l'atelier
+  const next = clip.words[i + 1]?.t ?? Infinity;
+  return Math.max(clip.cutAt + 0.5, gapEnd + 0.05, Math.min(next - 0.05, gapEnd + 3));
 }
 
 function openAnswer(room, clip) {
@@ -206,6 +211,7 @@ function openAnswer(room, clip) {
   const music = Math.max(0, bedEnd(clip) - clip.cutAt);
   const timer = room.answerMs / 1000;
   io.to(room.code).emit("answer:open", { seconds: music + timer, music, timer, answerLength: clip.answer.split(" ").length });
+  pushRemote(room);
   room.timers.push(setTimeout(() => reveal(room, clip), (music + timer) * 1000));
 }
 
@@ -219,17 +225,35 @@ function reveal(room, clip) {
       return { name: p.name, text: p.answer || "", points: pts };
     })
     .sort((a, b) => b.points - a.points);
-  io.to(room.code).emit("reveal", { answer: clip.answer, film: clip.film, title: clip.title, ranking });
+  io.to(room.code).emit("reveal", { answer: clip.answer, film: clip.film, title: clip.title, ranking, last: room.round + 1 >= room.songs.length });
   broadcastPlayers(room);
-  room.timers.push(setTimeout(() => {
-    room.round += 1;
-    if (room.round >= room.songs.length) {
-      room.state = "over";
-      io.to(room.code).emit("game:over", [...room.players.values()].map((p) => ({ name: p.name, score: p.score })).sort((a, b) => b.score - a.score));
-    } else {
-      startRound(room);
-    }
-  }, Math.max(REVEAL_MS, clip.revealDur ? clip.revealDur * 1000 + 1500 : 0))); // laisser finir la reprise chantée
+  pushRemote(room);
+  // la manche suivante attend le présentateur (télécommande /remote.html ou bouton de l'écran)
+}
+
+function nextRound(room) {
+  if (room.state !== "reveal") return;
+  clearTimers(room);
+  room.round += 1;
+  if (room.round >= room.songs.length) {
+    room.round = room.songs.length - 1;
+    room.state = "over";
+    io.to(room.code).emit("game:over", [...room.players.values()].map((p) => ({ name: p.name, score: p.score })).sort((a, b) => b.score - a.score));
+    pushRemote(room);
+  } else {
+    startRound(room);
+  }
+}
+
+// télécommande du présentateur : état de la partie
+function pushRemote(room) {
+  const clip = room.songs[room.round];
+  io.to(room.code + ":remote").emit("remote:state", {
+    state: room.state, round: room.round + 1, total: room.songs.length,
+    title: clip?.title || "", film: clip?.film || "",
+    players: room.players.size, answers: [...room.players.values()].filter((p) => p.answer !== null).length,
+    answer: room.state === "reveal" ? clip?.answer || "" : null,
+  });
 }
 
 io.on("connection", (socket) => {
@@ -240,16 +264,19 @@ io.on("connection", (socket) => {
     const songs = pick(total, library.clips(listId));
     if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');
     const code = code4();
-    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs };
+    const remoteKey = String(randomInt(1000, 10000));
+    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs, remoteKey };
     rooms.set(code, room);
     socket.join(code);
     socket.data.code = code;
     socket.data.role = "host";
     // en ligne, PUBLIC_URL donne l'adresse publique (https://…) ; à la maison, l'adresse Wi-Fi du PC
-    const joinUrl = `${(process.env.PUBLIC_URL || `http://${lanAddress()}:${PORT}`).replace(/\/+$/, '')}/play.html?code=${code}`;
+    const base = (process.env.PUBLIC_URL || `http://${lanAddress()}:${PORT}`).replace(/\/+$/, '');
+    const joinUrl = `${base}/play.html?code=${code}`;
+    const remote = { url: `${base}/remote.html`, key: remoteKey };
     QRCode.toDataURL(joinUrl, { margin: 1, width: 240 }).then((qr) => {
-      socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, qr });
-    }).catch(() => socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl }));
+      socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, qr, remote });
+    }).catch(() => socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, remote }));
   });
 
   socket.on('host:leave', () => {
@@ -257,6 +284,7 @@ io.on("connection", (socket) => {
     if (!room || room.hostId !== socket.id) return;
     clearTimers(room);
     socket.to(room.code).emit('room:closed');
+    io.to(room.code + ':remote').emit('remote:closed');
     io.in(room.code).socketsLeave(room.code);
     rooms.delete(room.code);
     delete socket.data.code;
@@ -277,6 +305,7 @@ io.on("connection", (socket) => {
     socket.data.token = token;
     ack({ ok: true, code: room.code, token });
     broadcastPlayers(room);
+    pushRemote(room);
   });
 
   // reprise d'une session joueur après rechargement ou coupure réseau
@@ -309,6 +338,27 @@ io.on("connection", (socket) => {
     room.round = 0;
     startRound(room);
   });
+  socket.on("host:next", () => {
+    const room = rooms.get(socket.data.code);
+    if (room && room.hostId === socket.id) nextRound(room);
+  });
+
+  // télécommande du présentateur : code du salon + clé affichée sur l'écran du salon
+  socket.on("remote:join", ({ code, key } = {}, ack = () => {}) => {
+    const room = rooms.get(String(code || "").trim().toUpperCase());
+    if (!room || String(key || "").trim() !== room.remoteKey) return ack({ ok: false, error: "Code du salon ou clé incorrects." });
+    socket.data.remote = room.code;
+    socket.join(room.code + ":remote");
+    ack({ ok: true, code: room.code });
+    pushRemote(room);
+  });
+  const remoteRoom = () => rooms.get(socket.data.remote) || null;
+  socket.on("remote:start", () => {
+    const room = remoteRoom();
+    if (!room || room.state !== "lobby" || room.players.size < 1) return;
+    io.to(room.hostId).emit("remote:start"); // c'est l'écran qui lance (il doit pouvoir jouer le son)
+  });
+  socket.on("remote:next", () => { const room = remoteRoom(); if (room) nextRound(room); });
 
   socket.on("player:answer", ({ text } = {}, ack = () => {}) => {
     const room = rooms.get(socket.data.code);
@@ -317,6 +367,7 @@ io.on("connection", (socket) => {
     p.answer = String(text || "").slice(0, 120);
     ack({ ok: true });
     io.to(room.hostId).emit("answers:count", [...room.players.values()].filter((x) => x.answer !== null).length);
+    pushRemote(room);
   });
 
   socket.on("disconnect", () => {
@@ -325,6 +376,7 @@ io.on("connection", (socket) => {
     if (socket.data.role === "host") {
       clearTimers(room);
       io.to(room.code).emit("room:closed");
+      io.to(room.code + ":remote").emit("remote:closed");
       rooms.delete(room.code);
     }
     // un joueur déconnecté garde sa place et son score : il peut reprendre avec player:resume

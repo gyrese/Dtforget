@@ -86,6 +86,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
           <img id="qr" alt="QR code pour rejoindre le salon" width="180" height="180" style="border-radius:18px;background:#fff;padding:10px">
           <div class="msg" style="font-size:18px">Scannez pour rejoindre<br><b id="join-url" style="word-break:break-all;font-size:16px"></b></div>
         </div>
+        <div class="remote-info" id="remote-info" hidden>Télécommande : <b id="remote-url"></b> · clé <b class="remote-key" id="remote-key"></b></div>
       </div>
       <div class="players" id="players"></div>
     </div>
@@ -119,6 +120,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
       </div>
       <div class="reveal-ranking" id="rev-ranking"></div>
     </div>
+    <div class="reveal-next"><span class="hint-next">Ou depuis la télécommande</span><button class="btn" id="next">Manche suivante →</button></div>
   </section>
 
   <section class="screen" id="s-over"><div id="celebration-art" aria-hidden="true"></div><h1 class="final-heading" id="winner-title">Classement final</h1>
@@ -176,6 +178,10 @@ $("start").onclick = () => {
   audio.pause();
   socket.emit("host:start");
 };
+// la manche suivante attend le présentateur : ce bouton, la touche → ou la télécommande (/remote.html)
+$("next").onclick = () => { $("next").disabled = true; socket.emit("host:next"); };
+document.addEventListener("keydown", (e) => { if ($("s-reveal").classList.contains("on") && !$("next").disabled && (e.key === "ArrowRight" || e.key === "PageDown")) $("next").click(); });
+socket.on("remote:start", () => { if (!$("start").disabled) $("start").click(); });
 $("again").onclick = () => { socket.emit("host:leave"); show("s-menu"); };
 
 socket.on("round:intro", ({ round, total, film, title }) => {
@@ -301,7 +307,8 @@ socket.on("answers:count", (n) => {
   $("answers").textContent = n + (n > 1 ? " réponses" : " réponse");
 });
 
-socket.on("reveal", ({ answer, film, title, ranking }) => {
+socket.on("reveal", ({ answer, film, title, ranking, last }) => {
+  $("next").textContent = last ? "Classement final →" : "Manche suivante →";
   audio.pause();
   audio.volume = 1;
   // reprise 10 s avant le passage, avec les paroles, jusqu'à 10 s après
@@ -324,6 +331,7 @@ socket.on("reveal", ({ answer, film, title, ranking }) => {
     box.appendChild(row);
   });
   show("s-reveal");
+  $("next").disabled = false;
 });
 
 socket.on("game:over", (list) => {

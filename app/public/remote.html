@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/assets/brand-mark.svg" type="image/svg+xml">
+<title>N'oubliez pas les paroles · Télécommande</title>
+<link rel="stylesheet" href="/plateau.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--night);color:var(--chalk);font-family:var(--f-text)}
+body{background:var(--spotlight),var(--night);min-height:100dvh}
+.screen{display:none;flex-direction:column;gap:22px;min-height:100dvh;max-width:460px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 22px max(28px,env(safe-area-inset-bottom))}
+.screen.on{display:flex}
+.brand{font:700 12px var(--f-text);letter-spacing:.2em;text-transform:uppercase;color:var(--spot);padding-bottom:16px;border-bottom:1px solid var(--rule)}
+h1{margin:0;font:900 56px/.9 var(--f-display);text-transform:uppercase}
+.lead{margin:0;color:var(--haze);line-height:1.6;font-size:17px}
+.lbl{font:700 12px var(--f-text);letter-spacing:.18em;text-transform:uppercase;color:var(--haze)}
+.field{display:flex;flex-direction:column;gap:8px}
+.inp{width:100%;min-height:64px;background:var(--deck-2);color:var(--chalk);border:1px solid var(--rule-strong);border-radius:var(--r-md);font:700 30px var(--f-mono);letter-spacing:.4em;text-align:center;text-transform:uppercase;padding:12px 18px;outline:0}
+.inp:focus{border-color:var(--led);box-shadow:0 0 0 3px #46d9ec40}
+.btn{min-height:72px;width:100%;border:0;border-radius:var(--r-md);background:var(--spot);color:var(--on-spot);font:900 24px var(--f-display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;box-shadow:var(--glow-spot)}
+.btn:disabled{background:var(--deck-2);color:var(--haze);box-shadow:none;cursor:default}
+.btn:focus-visible{outline:3px solid var(--chalk);outline-offset:3px}
+.err{margin:0;color:var(--live);font-weight:700;min-height:1.4em}
+.card{background:var(--deck);border:1px solid var(--rule);border-radius:var(--r-lg);padding:20px}
+.state{font:900 34px/1 var(--f-display);text-transform:uppercase;color:var(--led);margin:6px 0 0}
+.song{font:700 20px/1.3 var(--f-text);margin-top:14px}.song small{display:block;color:var(--haze);font-weight:400;font-size:15px}
+.answer{margin-top:14px;padding-top:14px;border-top:1px solid var(--rule);color:var(--spot);font:700 20px/1.35 var(--f-text)}
+.stats{display:flex;gap:22px;margin-top:14px;color:var(--haze);font-size:15px}.stats b{color:var(--chalk);font:700 22px var(--f-mono)}
+.grow{flex:1}
+</style>
+</head>
+<body>
+<section class="screen on" id="v-join">
+  <div class="brand">Télécommande du présentateur</div>
+  <h1>Prendre<br>la main</h1>
+  <p class="lead">Le code du salon et la clé de la télécommande sont affichés sur l’écran du salon.</p>
+  <form id="join" style="display:flex;flex-direction:column;gap:18px">
+    <label class="field"><span class="lbl">Code du salon</span><input class="inp" id="code" maxlength="4" autocomplete="off" autocapitalize="characters" required></label>
+    <label class="field"><span class="lbl">Clé de la télécommande</span><input class="inp" id="key" maxlength="4" inputmode="numeric" autocomplete="off" required></label>
+    <p class="err" id="join-err" role="alert"></p>
+    <button class="btn" type="submit">Se connecter</button>
+  </form>
+</section>
+
+<section class="screen" id="v-remote">
+  <div class="brand" id="room">Salon</div>
+  <div class="card" aria-live="polite">
+    <div class="lbl" id="round"></div>
+    <p class="state" id="state"></p>
+    <div class="song" id="song" hidden></div>
+    <div class="stats"><span><b id="players">0</b> joueurs</span><span><b id="answers">0</b> réponses</span></div>
+    <div class="answer" id="answer" hidden></div>
+  </div>
+  <span class="grow"></span>
+  <p class="lead" id="hint"></p>
+  <button class="btn" id="action" disabled>Manche suivante →</button>
+</section>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const socket = io();
+const q = new URLSearchParams(location.search);
+let joined = null;
+const saved = () => { try { return JSON.parse(sessionStorage.getItem('remote') || 'null'); } catch { return null; } };
+$('code').value = q.get('code') || saved()?.code || '';
+$('key').value = q.get('key') || saved()?.key || '';
+
+function join(code, key) {
+  socket.emit('remote:join', { code, key }, (res) => {
+    if (!res?.ok) { joined = null; $('join-err').textContent = res?.error || 'Connexion impossible.'; show('v-join'); return; }
+    joined = { code: res.code, key };
+    try { sessionStorage.setItem('remote', JSON.stringify(joined)); } catch {}
+    $('room').textContent = 'Télécommande · salon ' + res.code;
+    show('v-remote');
+  });
+}
+function show(id) { document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === id)); }
+$('join').onsubmit = (e) => { e.preventDefault(); $('join-err').textContent = ''; join($('code').value.trim().toUpperCase(), $('key').value.trim()); };
+// après une coupure réseau, on se reconnecte tout seul au même salon
+socket.on('connect', () => { if (joined) join(joined.code, joined.key); else if ($('code').value && $('key').value) join($('code').value.trim().toUpperCase(), $('key').value.trim()); });
+
+const LABEL = { lobby: 'Salle d’attente', intro: 'Annonce de la chanson', playing: 'Extrait en cours', answering: 'Les joueurs répondent', reveal: 'Révélation', over: 'Partie terminée' };
+let current = null;
+socket.on('remote:state', (s) => {
+  current = s;
+  $('round').textContent = s.state === 'lobby' ? s.total + ' manches au programme' : 'Manche ' + s.round + ' / ' + s.total;
+  $('state').textContent = LABEL[s.state] || s.state;
+  $('song').hidden = s.state === 'lobby' || s.state === 'over';
+  $('song').replaceChildren(s.title, Object.assign(document.createElement('small'), { textContent: s.film }));
+  $('players').textContent = s.players; $('answers').textContent = s.answers;
+  $('answer').hidden = !s.answer; $('answer').textContent = s.answer ? 'Réponse : ' + s.answer : '';
+  const btn = $('action');
+  if (s.state === 'lobby') { btn.textContent = 'Lancer la partie →'; btn.disabled = s.players < 1; $('hint').textContent = s.players < 1 ? 'En attente d’un premier joueur…' : ''; }
+  else if (s.state === 'reveal') { const last = s.round >= s.total; btn.textContent = last ? 'Classement final →' : 'Manche suivante →'; btn.disabled = false; $('hint').textContent = ''; }
+  else if (s.state === 'over') { btn.textContent = 'Partie terminée'; btn.disabled = true; $('hint').textContent = 'Pour rejouer, créez un nouveau salon sur l’écran.'; }
+  else { btn.textContent = 'Manche suivante →'; btn.disabled = true; $('hint').textContent = 'Le bouton s’active à la révélation.'; }
+});
+$('action').onclick = () => {
+  if (!current) return;
+  $('action').disabled = true;
+  socket.emit(current.state === 'lobby' ? 'remote:start' : 'remote:next');
+};
+socket.on('remote:closed', () => { joined = null; try { sessionStorage.removeItem('remote'); } catch {} $('key').value = ''; $('join-err').textContent = 'Le salon a été fermé.'; show('v-join'); });
+</script>
+</body>
+</html>

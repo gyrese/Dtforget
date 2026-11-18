@@ -118,11 +118,13 @@ $('create-room').onclick = () => {
   creatingRoom = true; $('create-room').disabled = true; $('create-room').textContent = 'Création du salon…';
   socket.emit('host:create', { listId: selectedList.id, rounds: Number(document.querySelector('[name=rounds]:checked').value), answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value) });
 };
-socket.on('host:created', ({ code, rounds, joinUrl, qr }) => {
+socket.on('host:created', ({ code, rounds, joinUrl, qr, remote }) => {
   roomCover = coverSource(selectedList.theme, selectedList.coverImage);
   creatingRoom = false; $('create-room').textContent = 'Créer le salon →'; $('code').textContent = code; $('players').replaceChildren(); $('start').disabled = true;
   if (qr) $('qr').src = qr;
   $('join-url').textContent = joinUrl || '';
+  $('remote-info').hidden = !remote;
+  if (remote) { $('remote-url').textContent = remote.url; $('remote-key').textContent = remote.key; }
   $('lobby-msg').textContent = 'En attente des joueurs…';
   $('lobby-style').textContent = selectedList.name + ' · ' + rounds + ' manches';
   show('s-lobby');
