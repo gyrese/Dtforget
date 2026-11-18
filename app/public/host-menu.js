@@ -124,7 +124,7 @@ socket.on('host:created', ({ code, rounds, joinUrl, qr, remote }) => {
   if (qr) $('qr').src = qr;
   $('join-url').textContent = joinUrl || '';
   $('remote-info').hidden = !remote;
-  if (remote) { $('remote-url').textContent = remote.url; $('remote-key').textContent = remote.key; }
+  if (remote) $('remote-url').textContent = remote.url;
   $('lobby-msg').textContent = 'En attente des joueurs…';
   $('lobby-style').textContent = selectedList.name + ' · ' + rounds + ' manches';
   show('s-lobby');

@@ -14,7 +14,7 @@ import { createAdmin } from './admin.js';
 import { createCatalog } from './catalog.js';
 import QRCode from 'qrcode';
 import { networkInterfaces } from 'node:os';
-import { randomUUID, randomInt } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { bedEnd, lastGap } from './timing.js';
 
 // Adresse IPv4 du PC sur le réseau local (pour que le téléphone puisse ouvrir l'adresse du QR code).
@@ -203,6 +203,16 @@ function openAnswer(room, clip) {
   room.timers.push(setTimeout(() => reveal(room, clip), (music + timer) * 1000));
 }
 
+// les joueurs déconnectés ne retiennent pas la manche
+const allAnswered = (room) => [...room.players.values()].every((p) => p.answer !== null || !p.socketId);
+
+// fin anticipée du chrono : tout le monde a répondu, ou le présentateur l'arrête
+function stopAnswers(room) {
+  if (room.state !== "answering") return;
+  clearTimers(room);
+  reveal(room, room.songs[room.round]);
+}
+
 function reveal(room, clip) {
   room.state = "reveal";
   room.answering = false;
@@ -252,8 +262,7 @@ io.on("connection", (socket) => {
     const songs = pick(total, library.clips(listId));
     if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');
     const code = code4();
-    const remoteKey = String(randomInt(1000, 10000));
-    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs, remoteKey };
+    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs };
     rooms.set(code, room);
     socket.join(code);
     socket.data.code = code;
@@ -261,7 +270,7 @@ io.on("connection", (socket) => {
     // en ligne, PUBLIC_URL donne l'adresse publique (https://…) ; à la maison, l'adresse Wi-Fi du PC
     const base = (process.env.PUBLIC_URL || `http://${lanAddress()}:${PORT}`).replace(/\/+$/, '');
     const joinUrl = `${base}/play.html?code=${code}`;
-    const remote = { url: `${base}/remote.html`, key: remoteKey };
+    const remote = { url: `${base}/remote.html?code=${code}` };
     QRCode.toDataURL(joinUrl, { margin: 1, width: 240 }).then((qr) => {
       socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, qr, remote });
     }).catch(() => socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, remote }));
@@ -331,10 +340,10 @@ io.on("connection", (socket) => {
     if (room && room.hostId === socket.id) nextRound(room);
   });
 
-  // télécommande du présentateur : code du salon + clé affichée sur l'écran du salon
-  socket.on("remote:join", ({ code, key } = {}, ack = () => {}) => {
+  // télécommande du présentateur : le code du salon suffit
+  socket.on("remote:join", ({ code } = {}, ack = () => {}) => {
     const room = rooms.get(String(code || "").trim().toUpperCase());
-    if (!room || String(key || "").trim() !== room.remoteKey) return ack({ ok: false, error: "Code du salon ou clé incorrects." });
+    if (!room) return ack({ ok: false, error: "Aucun salon avec ce code." });
     socket.data.remote = room.code;
     socket.join(room.code + ":remote");
     ack({ ok: true, code: room.code });
@@ -347,6 +356,7 @@ io.on("connection", (socket) => {
     io.to(room.hostId).emit("remote:start"); // c'est l'écran qui lance (il doit pouvoir jouer le son)
   });
   socket.on("remote:next", () => { const room = remoteRoom(); if (room) nextRound(room); });
+  socket.on("remote:stop", () => { const room = remoteRoom(); if (room) stopAnswers(room); });
 
   socket.on("player:answer", ({ text } = {}, ack = () => {}) => {
     const room = rooms.get(socket.data.code);
@@ -354,8 +364,10 @@ io.on("connection", (socket) => {
     if (!room || !p || !room.answering) return ack({ ok: false });
     p.answer = String(text || "").slice(0, 120);
     ack({ ok: true });
-    io.to(room.hostId).emit("answers:count", [...room.players.values()].filter((x) => x.answer !== null).length);
+    const answered = [...room.players.values()].filter((x) => x.answer !== null).length;
+    io.to(room.hostId).emit("answers:count", answered);
     pushRemote(room);
+    if (allAnswered(room)) stopAnswers(room);
   });
 
   socket.on("disconnect", () => {
@@ -372,6 +384,7 @@ io.on("connection", (socket) => {
     if (p && p.socketId === socket.id) {
       p.socketId = null;
       broadcastPlayers(room);
+      if (room.state === "answering" && allAnswered(room)) stopAnswers(room);
     }
   });
 });

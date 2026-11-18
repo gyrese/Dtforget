@@ -167,7 +167,7 @@ h1[tabindex="-1"]:focus,[tabindex="-1"]:focus:not(button){outline:none}
 
 /* Révélation */
 .reveal-next{display:flex;justify-content:flex-end;align-items:center;gap:18px;flex-shrink:0}.hint-next{color:var(--haze);font-size:14px}
-.remote-info{margin-top:18px;color:var(--haze);font-size:15px}.remote-info b{color:var(--chalk);word-break:break-all}.remote-info .remote-key{font:700 22px var(--f-mono);color:var(--spot);letter-spacing:.2em}
+.remote-info{margin-top:18px;color:var(--haze);font-size:15px}.remote-info b{color:var(--chalk);word-break:break-all}
 .reveal-layout{flex:1;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:56px}
 .reveal-answer .label{color:var(--spot)}
 .answer{font:900 clamp(56px,6.4vw,120px)/.95 var(--f-display);text-transform:uppercase;color:var(--led);overflow-wrap:anywhere;margin-top:10px;text-shadow:0 0 40px #46d9ec40}

@@ -35,10 +35,9 @@ h1{margin:0;font:900 56px/.9 var(--f-display);text-transform:uppercase}
 <section class="screen on" id="v-join">
   <div class="brand brand-intro"><img class="brand-logo" src="/assets/brand-logo.svg" alt="DtForget" width="322" height="64"><span class="brand-caption">Télécommande du présentateur</span></div>
   <h1>Prendre<br>la main</h1>
-  <p class="lead">Le code du salon et la clé de la télécommande sont affichés sur l’écran du salon.</p>
+  <p class="lead">Le code du salon est affiché sur l’écran du salon.</p>
   <form id="join" style="display:flex;flex-direction:column;gap:18px">
     <label class="field"><span class="lbl">Code du salon</span><input class="inp" id="code" maxlength="4" autocomplete="off" autocapitalize="characters" required></label>
-    <label class="field"><span class="lbl">Clé de la télécommande</span><input class="inp" id="key" maxlength="4" inputmode="numeric" autocomplete="off" required></label>
     <p class="err" id="join-err" role="alert"></p>
     <button class="btn" type="submit">Se connecter</button>
   </form>
@@ -66,21 +65,20 @@ const q = new URLSearchParams(location.search);
 let joined = null;
 const saved = () => { try { return JSON.parse(sessionStorage.getItem('remote') || 'null'); } catch { return null; } };
 $('code').value = q.get('code') || saved()?.code || '';
-$('key').value = q.get('key') || saved()?.key || '';
 
-function join(code, key) {
-  socket.emit('remote:join', { code, key }, (res) => {
+function join(code) {
+  socket.emit('remote:join', { code }, (res) => {
     if (!res?.ok) { joined = null; $('join-err').textContent = res?.error || 'Connexion impossible.'; show('v-join'); return; }
-    joined = { code: res.code, key };
+    joined = { code: res.code };
     try { sessionStorage.setItem('remote', JSON.stringify(joined)); } catch {}
     $('room').textContent = 'Télécommande · salon ' + res.code;
     show('v-remote');
   });
 }
 function show(id) { document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === id)); }
-$('join').onsubmit = (e) => { e.preventDefault(); $('join-err').textContent = ''; join($('code').value.trim().toUpperCase(), $('key').value.trim()); };
+$('join').onsubmit = (e) => { e.preventDefault(); $('join-err').textContent = ''; join($('code').value.trim().toUpperCase()); };
 // après une coupure réseau, on se reconnecte tout seul au même salon
-socket.on('connect', () => { if (joined) join(joined.code, joined.key); else if ($('code').value && $('key').value) join($('code').value.trim().toUpperCase(), $('key').value.trim()); });
+socket.on('connect', () => { if (joined) join(joined.code); else if ($('code').value) join($('code').value.trim().toUpperCase()); });
 
 const LABEL = { lobby: 'Salle d’attente', intro: 'Annonce de la chanson', playing: 'Extrait en cours', answering: 'Les joueurs répondent', reveal: 'Révélation', over: 'Partie terminée' };
 let current = null;
@@ -96,14 +94,15 @@ socket.on('remote:state', (s) => {
   if (s.state === 'lobby') { btn.textContent = 'Lancer la partie →'; btn.disabled = s.players < 1; $('hint').textContent = s.players < 1 ? 'En attente d’un premier joueur…' : ''; }
   else if (s.state === 'reveal') { const last = s.round >= s.total; btn.textContent = last ? 'Classement final →' : 'Manche suivante →'; btn.disabled = false; $('hint').textContent = ''; }
   else if (s.state === 'over') { btn.textContent = 'Partie terminée'; btn.disabled = true; $('hint').textContent = 'Pour rejouer, créez un nouveau salon sur l’écran.'; }
+  else if (s.state === 'answering') { btn.textContent = 'Arrêter le chrono ■'; btn.disabled = false; $('hint').textContent = 'Le chrono s’arrête aussi tout seul quand tout le monde a répondu.'; }
   else { btn.textContent = 'Manche suivante →'; btn.disabled = true; $('hint').textContent = 'Le bouton s’active à la révélation.'; }
 });
 $('action').onclick = () => {
   if (!current) return;
   $('action').disabled = true;
-  socket.emit(current.state === 'lobby' ? 'remote:start' : 'remote:next');
+  socket.emit(current.state === 'lobby' ? 'remote:start' : current.state === 'answering' ? 'remote:stop' : 'remote:next');
 };
-socket.on('remote:closed', () => { joined = null; try { sessionStorage.removeItem('remote'); } catch {} $('key').value = ''; $('join-err').textContent = 'Le salon a été fermé.'; show('v-join'); });
+socket.on('remote:closed', () => { joined = null; try { sessionStorage.removeItem('remote'); } catch {} $('join-err').textContent = 'Le salon a été fermé.'; show('v-join'); });
 </script>
 </body>
 </html>
