@@ -139,7 +139,7 @@ ipcMain.handle('install', async (_e, code) => {
 let settingsOnly = false;
 app.whenReady().then(async () => {
   win = new BrowserWindow({
-    width: 1180, height: 860, minWidth: 720, minHeight: 560, backgroundColor: '#f4efdf', title: 'DtForget Atelier',
+    width: 1180, height: 860, minWidth: 720, minHeight: 560, backgroundColor: '#f4efdf', title: 'DtForget Atelier', icon: join(here, 'build', 'icon.png'),
     webPreferences: { preload: join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false },
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate([
