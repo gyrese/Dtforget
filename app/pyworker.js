@@ -21,6 +21,7 @@ export function createPyWorker(spikeDir) {
       // bornes choisies à la main sur l'aperçu (secondes dans la chanson)
       if (Number.isFinite(job.start)) args.push('--start', String(job.start));
       if (Number.isFinite(job.end)) args.push('--end', String(job.end));
+      if (Number.isFinite(job.cut)) args.push('--cut', String(job.cut));
     }
     else return Promise.reject(new Error('Traitement inconnu.'));
 

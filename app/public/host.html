@@ -203,8 +203,10 @@ socket.on("round:clip", (c) => {
   let cur = [];
   c.words.forEach((w, i) => {
     // un même trou (plusieurs mots à trouver) reste sur une seule ligne
+    // lignes choisies dans la bibliothèque (br sur le premier mot de chaque ligne), sinon pause ou ponctuation
     const inHole = w.gap && c.words[i - 1]?.gap;
-    if (cur.length && !inHole && (w.t - c.words[i - 1].e > 0.6 || /[.?!,]$/.test(c.words[i - 1].x))) {
+    const manual = c.words[0]?.br;
+    if (cur.length && !inHole && (manual ? w.br : w.t - c.words[i - 1].e > 0.6 || /[.?!,]$/.test(c.words[i - 1].x))) {
       lineGroups.push(cur);
       cur = [];
     }

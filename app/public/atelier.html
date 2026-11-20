@@ -79,6 +79,9 @@ audio{width:100%;margin-top:18px}
 .trim-h::after{content:'';position:absolute;left:5px;top:50%;width:18px;height:26px;margin-top:-13px;border-radius:4px;background:var(--spot)}
 .trim-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .trim-scale{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted)}
+.cut-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+.cut-row b{color:var(--ink);font:700 13px var(--f-mono);min-width:64px;text-align:center}
+.cut-row .quiet{padding:6px 10px}
 @media (max-width:640px){.fields{grid-template-columns:1fr}.steps li span{display:none}.lyrics{font-size:18px;padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 #background-dialog{width:min(440px,calc(100% - 32px));padding:24px;color:var(--chalk);background:var(--deck);border:1px solid var(--rule-strong);border-radius:8px}
@@ -163,6 +166,11 @@ audio{width:100%;margin-top:18px}
         <div class="trim-bar" id="trim-bar"><div class="trim-keep" id="trim-keep"></div><div class="trim-gap" id="trim-gap" title="Passage à deviner"></div><div class="trim-cut" id="trim-cut" title="Coupure"></div>
           <button type="button" class="trim-h" id="trim-h0" aria-label="Début de l’extrait (flèches : ± 0,5 s)"></button><button type="button" class="trim-h" id="trim-h1" aria-label="Fin de l’extrait (flèches : ± 0,5 s)"></button></div>
         <div class="trim-scale"><span>0:00</span><span id="trim-total"></span></div>
+        <div class="cut-row" role="group" aria-label="Fin de la voix avant le trou"><span>Fin de la voix avant le trou (pointillés)</span>
+          <button class="quiet" type="button" data-cut="-0.5">− 0,5 s</button><button class="quiet" type="button" data-cut="-0.1">− 0,1 s</button>
+          <b id="cut-shift" title="Décalage par rapport à l’extrait actuel">0,0 s</b>
+          <button class="quiet" type="button" data-cut="0.1">+ 0,1 s</button><button class="quiet" type="button" data-cut="0.5">+ 0,5 s</button>
+          <button class="quiet" type="button" id="cut-hear">▶ Écouter la fin de la voix</button></div>
         <div class="row" style="margin-top:12px"><button class="quiet" id="trim-reset" type="button">Réglage automatique</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Refaire l’extrait</button></div>
       </div>
       <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p></div>
@@ -185,6 +193,15 @@ audio{width:100%;margin-top:18px}
     <h2>Modifier la chanson</h2>
     <p class="note" id="edit-answer" style="margin:0 0 16px"></p>
     <div class="fields" style="margin-top:0"><label>Titre de la chanson<input type="text" id="edit-title" maxlength="80" required autocomplete="off"></label><label>Artiste ou film<input type="text" id="edit-film" maxlength="80" required autocomplete="off"></label></div>
+    <label>Paroles à l’écran
+      <textarea id="edit-lyrics" spellcheck="false" rows="8" style="font-size:14px;line-height:1.5"></textarea>
+      <small class="note">Une ligne ici = une ligne à l’écran : passez à la ligne où vous voulez couper. Vous pouvez corriger l’orthographe, mais gardez le même nombre de mots (chaque mot garde son moment dans la chanson). Les mots à deviner sont entre crochets.</small>
+    </label>
+    <div class="cut-row" id="edit-cut" role="group" aria-label="Fin de la voix avant le trou" style="margin:0 0 16px"><span>Fin de la voix avant le trou</span>
+      <button class="quiet" type="button" data-ecut="-0.5">− 0,5 s</button><button class="quiet" type="button" data-ecut="-0.1">− 0,1 s</button>
+      <b id="edit-cut-shift">0,0 s</b>
+      <button class="quiet" type="button" data-ecut="0.1">+ 0,1 s</button><button class="quiet" type="button" data-ecut="0.5">+ 0,5 s</button>
+      <button class="quiet" type="button" id="edit-cut-hear">▶ Écouter</button></div>
     <fieldset class="checks" id="edit-lists"><legend>Listes</legend></fieldset>
     <label>Fond en jeu
       <select id="edit-bg">
@@ -418,6 +435,18 @@ $('listen').onclick = () => {
   const start = () => { player.currentTime = from; player.play(); };
   player.readyState >= 1 ? start() : player.addEventListener('loadedmetadata', start, { once: true });
 };
+// arrêt précis (timeupdate n'arrive que tous les ~250 ms) : utile pour régler la fin de la voix au dixième
+let stopTimer = null;
+player.addEventListener('playing', () => {
+  clearTimeout(stopTimer);
+  const check = () => {
+    if (player.paused || stopAt === null) return;
+    const left = stopAt - player.currentTime;
+    if (left <= 0.005) { player.pause(); return; }
+    stopTimer = setTimeout(check, Math.min(200, Math.max(5, left * 1000 - 20)));
+  };
+  check();
+});
 player.ontimeupdate = () => {
   if (stopAt !== null && player.currentTime >= stopAt) player.pause();
   const t = player.currentTime;
@@ -504,16 +533,15 @@ $('hear-reveal').onclick = () => hear(doneParts.revealAt);
 $('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
 
 /* Début et fin de l'extrait, réglés à la main sur la chanson entière */
-const trim = { clip: null, start: 0, end: 0, min0: 0, max0: 0, min1: 0, max1: 0 };
+const trim = { clip: null, start: 0, end: 0, cut: 0, cut0: 0, min0: 0, max0: 0, min1: 0, max1: 0 };
 const fmt1 = (s) => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
 function showTrim(clip) {
   const ok = clip && Number.isFinite(clip.sourceStart) && Number.isFinite(clip.sourceEnd) && Number.isInteger(clip.first) && state.words?.[clip.last] && state.duration;
   $('trim').hidden = !ok;
   if (!ok) return;
   const cut = clip.sourceStart + clip.cutAt;
-  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, min0: 0, max0: Math.max(0, cut - 2), min1: Math.max(cut + 1, state.words[clip.last].e + 0.5), max1: state.duration });
+  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, cut, cut0: cut, min0: 0, max1: state.duration });
   const pct = (t) => (100 * t / state.duration) + '%';
-  $('trim-cut').style.left = pct(cut);
   $('trim-gap').style.left = pct(state.words[clip.first].t);
   $('trim-gap').style.width = pct(Math.max(0.3, state.words[clip.last].e - state.words[clip.first].t));
   $('trim-total').textContent = fmt(state.duration);
@@ -522,10 +550,16 @@ function showTrim(clip) {
 }
 function paintTrim() {
   const pct = (t) => (100 * t / state.duration) + '%';
+  // les bornes suivent la coupure : au moins 2 s de chant avant, 1 s d'instrumental après
+  trim.max0 = Math.max(0, trim.cut - 2); trim.min1 = Math.max(trim.cut + 1, state.words[trim.clip.last].e + 0.5);
+  trim.start = Math.min(trim.start, trim.max0); trim.end = Math.max(trim.end, trim.min1);
+  $('trim-cut').style.left = pct(trim.cut);
+  const shift = trim.cut - trim.cut0;
+  $('cut-shift').textContent = (shift > 0.005 ? '+' : shift < -0.005 ? '−' : '') + Math.abs(shift).toFixed(1).replace('.', ',') + ' s';
   $('trim-h0').style.left = pct(trim.start); $('trim-h1').style.left = pct(trim.end);
   $('trim-keep').style.left = pct(trim.start); $('trim-keep').style.width = pct(trim.end - trim.start);
   $('trim-start').textContent = fmt1(trim.start); $('trim-end').textContent = fmt1(trim.end); $('trim-len').textContent = Math.round(trim.end - trim.start) + ' s';
-  const changed = Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs(trim.end - trim.clip.sourceEnd) > 0.05;
+  const changed = Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs(trim.end - trim.clip.sourceEnd) > 0.05 || Math.abs(trim.cut - trim.cut0) > 0.05;
   $('trim-apply').disabled = !changed;
 }
 function setTrim(which, t) {
@@ -541,7 +575,7 @@ function hearTrim(which) {
   const from = which === 0 ? trim.start : Math.max(0, trim.end - 4);
   stopAt = which === 0 ? trim.start + 4 : trim.end;
   const go = () => { player.currentTime = from; player.play().catch(() => {}); };
-  player.readyState >= 1 ? go() : player.addEventListener('loadedmetadata', go, { once: true });
+  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
 }
 for (const which of [0, 1]) {
   const h = $('trim-h' + which);
@@ -559,6 +593,20 @@ for (const which of [0, 1]) {
   });
   h.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow')) hearTrim(which); });
 }
+// la voix s'arrête un poil trop tôt (ou trop tard) : on déplace la coupure, 3 s au plus de part et d'autre
+for (const b of document.querySelectorAll('[data-cut]')) b.onclick = () => {
+  const t = Math.round((trim.cut + Number(b.dataset.cut)) * 100) / 100;
+  trim.cut = Math.min(trim.cut0 + 3, state.words[trim.clip.last].e, Math.max(0, trim.cut0 - 3, t));
+  paintTrim(); hearCut();
+};
+function hearCut() {
+  $('done-audio').pause();
+  if (!player.src.endsWith('/' + id + '/audio')) player.src = '/api/workshop/' + id + '/audio';
+  stopAt = trim.cut; // la chanson d'origine jusqu'à la coupure : c'est ce qu'on entendra chanter avant le trou
+  const go = () => { player.currentTime = Math.max(0, trim.cut - 4); player.play().catch(() => {}); };
+  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
+}
+$('cut-hear').onclick = hearCut;
 $('trim-reset').onclick = () => applyTrim(true);
 $('trim-apply').onclick = () => applyTrim(false);
 async function applyTrim(auto) {
@@ -566,7 +614,7 @@ async function applyTrim(auto) {
   $('trim-apply').disabled = true; $('trim-reset').disabled = true; player.pause(); $('done-audio').pause();
   try {
     await post('/' + id + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
-      ...(auto ? {} : { start: trim.start, end: trim.end }) });
+      ...(auto ? {} : { start: trim.start, end: trim.end, cut: trim.cut }) });
     kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
   } catch (error) { $('trim-status').textContent = error.message; paintTrim(); }
   finally { $('trim-reset').disabled = false; }
@@ -742,6 +790,24 @@ function openEdit(c) {
   editing = c;
   $('edit-title').value = c.title; $('edit-film').value = c.film;
   $('edit-answer').replaceChildren('Réponse : ', el('span', 'ans', c.answer));
+  $('edit-lyrics').value = lyricsText(c.words || []);
+  $('edit-lyrics').disabled = !c.words?.length;
+  // la coupure ne se déplace qu'en refaisant l'extrait : il faut la chanson analysée sur ce PC
+  const m = /__(\d+)-(\d+)$/.exec(c.id);
+  editCut = null; $('edit-cut').hidden = true;
+  if (c.media && m && Number.isFinite(c.cutAt)) {
+    // début de l'extrait dans la chanson : connu pour les extraits récents, sinon retrouvé
+    // grâce au premier mot à deviner (son moment dans la chanson moins son moment dans l'extrait)
+    const known = Number.isFinite(c.sourceStart) && Number.isFinite(c.sourceEnd);
+    (known ? Promise.resolve(null) : api('/' + c.media)).then((media) => {
+      const gap = c.words?.find((w) => w.gap), song = media?.words?.[+m[1]];
+      const start = known ? c.sourceStart : gap && song ? Math.max(0, song.t - gap.t) : null;
+      if (editing !== c || start === null) return;
+      const end = known ? c.sourceEnd : start + c.bedEnd;
+      editCut = { first: +m[1], last: +m[2], start, end, cut0: start + c.cutAt, cut: start + c.cutAt };
+      $('edit-cut').hidden = false; paintEditCut();
+    }).catch(() => {});
+  }
   const lists = [...lib.local.lists];
   for (const l of lib.online?.lists || []) if (!lists.some((x) => x.id === l.id)) lists.push(l);
   const box = $('edit-lists'); box.replaceChildren(el('legend', '', 'Listes'));
@@ -758,6 +824,45 @@ function openEdit(c) {
   $('edit-status').textContent = '';
   $('edit-dialog').showModal();
 }
+// les paroles de l'extrait, une ligne d'écran par ligne ; sans découpage choisi à la main,
+// celui que le jeu fait tout seul (pause de plus de 0,6 s ou ponctuation, un trou jamais coupé)
+function lyricsText(words) {
+  const manual = words[0]?.br;
+  let out = '';
+  words.forEach((w, i) => {
+    const p = words[i - 1];
+    const br = i > 0 && (manual ? w.br : !(w.gap && p.gap) && (w.t - p.e > 0.6 || /[.?!,]$/.test(p.x)));
+    out += (i === 0 ? '' : br ? '\n' : ' ') +(w.gap ? '[' + w.x + ']' : w.x);
+  });
+  return out;
+}
+function lyricsLines(c) {
+  const lines = $('edit-lyrics').value.split('\n').map((l) => l.replace(/[[\]]/g, ' ').split(/\s+/).filter(Boolean)).filter((l) => l.length);
+  const n = lines.flat().length;
+  if (n !== c.words.length) throw new Error('Les paroles doivent garder ' + c.words.length + ' mots (il y en a ' + n + ').');
+  return lines;
+}
+// fin de la voix avant le trou, décalée comme dans l'atelier (3 s au plus de part et d'autre), écoutée sur la chanson d'origine
+let editCut = null;
+function paintEditCut() {
+  if (!editCut) return;
+  const d = editCut.cut - editCut.cut0;
+  $('edit-cut-shift').textContent = (d > 0.005 ? '+' : d < -0.005 ? '−' : '') + Math.abs(d).toFixed(1).replace('.', ',') + ' s';
+}
+function hearEditCut() {
+  const src = '/api/workshop/' + editing.media + '/audio';
+  if (!player.src.endsWith(src)) player.src = src;
+  stopAt = editCut.cut;
+  const go = () => { player.currentTime = Math.max(0, editCut.cut - 4); player.play().catch(() => {}); };
+  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
+}
+for (const b of document.querySelectorAll('[data-ecut]')) b.onclick = () => {
+  const t = Math.round((editCut.cut + Number(b.dataset.ecut)) * 100) / 100;
+  editCut.cut = Math.min(editCut.cut0 + 3, Math.max(0, editCut.cut0 - 3, t));
+  paintEditCut(); hearEditCut();
+};
+$('edit-cut-hear').onclick = hearEditCut;
+$('edit-dialog').addEventListener('close', () => player.pause());
 $('edit-form').onsubmit = async (e) => {
   if (e.submitter?.value !== 'save') return;
   e.preventDefault();
@@ -766,7 +871,8 @@ $('edit-form').onsubmit = async (e) => {
   try {
     const lists = [...$('edit-lists').querySelectorAll('input:checked')].map((x) => x.value);
     const known = (lib.online?.lists || []).filter((l) => lists.includes(l.id));
-    await api('/library/' + encodeURIComponent(c.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: $('edit-title').value, film: $('edit-film').value, lists, known }) });
+    const lyrics = c.words?.length && $('edit-lyrics').value !== lyricsText(c.words) ? lyricsLines(c) : undefined;
+    await api('/library/' + encodeURIComponent(c.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: $('edit-title').value, film: $('edit-film').value, lists, known, lyrics }) });
     const bgPost = (body) => api('/library/' + encodeURIComponent(c.id) + '/background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (editBg.value === 'file') {
       const f = $('edit-file').files[0];
@@ -776,6 +882,19 @@ $('edit-form').onsubmit = async (e) => {
       await bgPost({ type: 'file', file: up.file });
     } else if (editBg.value === 'youtube') await bgPost({ type: 'youtube', url: $('edit-url').value.trim() });
     else if (editBg.value === 'none') await bgPost({ type: 'none' });
+    if (editCut && Math.abs(editCut.cut - editCut.cut0) > 0.05) {
+      // l'extrait est refait avec la nouvelle coupure (mêmes début et fin, même fond, mêmes paroles)
+      $('edit-status').textContent = 'Fabrication de l’extrait…'; player.pause();
+      await post('/' + c.media + '/clip', { first: editCut.first, last: editCut.last, replace: c.id, keepBackground: true, title: $('edit-title').value, film: $('edit-film').value, listId: null,
+        start: Math.min(editCut.start, Math.max(0, editCut.cut - 2)), end: Math.max(editCut.end, editCut.cut + 1), cut: editCut.cut });
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const st = await api('/' + c.media);
+        if (st.status === 'error') throw new Error(st.error || 'La fabrication de l’extrait a échoué.');
+        if (st.status !== 'working') break;
+      }
+      editCut.cut0 = editCut.cut; paintEditCut();
+    }
     // si un serveur en ligne est relié, la modification y part tout de suite
     if (lib.online && !(await publish(save, $('edit-status'), [c.id]))) { showLibrary(); save.disabled = false; return; }
     $('edit-dialog').close();

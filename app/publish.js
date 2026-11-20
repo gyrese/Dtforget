@@ -60,7 +60,7 @@ export function createPublisher({ content, contentFile, library, clipsDir, legac
     if (!ok) return res.status(400).json({ error: 'Extrait invalide.' });
     if (!existsSync(join(clipsDir, id + '.mp3'))) return res.status(409).json({ error: 'Audio manquant : envoyez-le d’abord.' });
     const clip = { id, film: c.film.trim().slice(0, 80), title: c.title.trim().slice(0, 80), audio: `/media/${id}.mp3?v=${Date.now()}`, cutAt: c.cutAt,
-      words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap })), answer: c.answer.slice(0, 400),
+      words: c.words.map((w) => ({ t: w.t, e: w.e, x: w.x.slice(0, 80), gap: w.gap, ...(w.br === true ? { br: true } : {}) })), answer: c.answer.slice(0, 400),
       ...(Number.isFinite(c.revealAt) && Number.isFinite(c.revealDur) ? { revealAt: c.revealAt, revealDur: c.revealDur } : {}),
       ...(Number.isFinite(c.bedEnd) && c.bedEnd > c.cutAt ? { bedEnd: c.bedEnd } : {}),
       ...(Number.isFinite(c.sourceStart) && Number.isFinite(c.sourceEnd) ? { sourceStart: c.sourceStart, sourceEnd: c.sourceEnd } : {}),

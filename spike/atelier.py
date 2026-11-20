@@ -2,7 +2,7 @@
 
   python atelier.py analyze <dossier> --title T --artist A   source.* -> audio, stems, paroles LRCLIB, mots alignés
   python atelier.py align   <dossier> [--lrclib ID]          réaligne sur lyrics.txt (ou sur une fiche LRCLIB)
-  python atelier.py build   <dossier> --first I --last J [--start S --end E]  fabrique clip.mp3 + clip.json pour le trou choisi
+  python atelier.py build   <dossier> --first I --last J [--start S --end E --cut C]  fabrique clip.mp3 + clip.json pour le trou choisi
 
 Progression sur stdout : lignes « @@{json} ». Les paroles ne sont jamais écrites sur stdout, seulement
 dans les fichiers du dossier (words.json, lyrics.txt, clip.json).
@@ -156,6 +156,8 @@ def cmd_build(a) -> None:
     naive = max(0.0, min(prev_end + 0.05, fw["start"] - 0.02))
     # coupure au creux d'énergie de la voix isolée, juste avant le premier mot à deviner
     cut = valley_cut(vocals, pw["start"] if pw else max(0.0, fw["start"] - 1.0), fw["start"], naive)
+    if a.cut is not None:  # coupure déplacée à la main (voix prolongée ou raccourcie) : 3 s au plus autour du calcul
+        cut = round(min(max(0.0, cut - 3.0, a.cut), cut + 3.0, lw["end"]), 3)
 
     orig, sr = sf.read(d / "audio.wav", dtype="float32")
     instr, sr2 = sf.read(d / f"instrumental_{SEP}.flac", dtype="float32")
@@ -230,7 +232,7 @@ def main() -> None:
     p = sub.add_parser("align"); p.add_argument("dir"); p.add_argument("--lrclib")
     p = sub.add_parser("build"); p.add_argument("dir"); p.add_argument("--first", type=int, required=True)
     p.add_argument("--last", type=int, required=True); p.add_argument("--out", default="clip.mp3")
-    p.add_argument("--start", type=float); p.add_argument("--end", type=float)
+    p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.add_argument("--cut", type=float)
     a = ap.parse_args()
     try:
         {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build}[a.cmd](a)

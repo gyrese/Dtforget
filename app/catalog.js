@@ -42,6 +42,8 @@ export function createCatalog({ content, contentFile, library, clipsDir, worksho
   const summary = (c) => ({
     id: c.id, title: c.title, film: c.film, answer: c.answer, audio: c.audio, cutAt: c.cutAt,
     background: c.background || null, updatedAt: c.updatedAt || null,
+    sourceStart: c.sourceStart ?? null, sourceEnd: c.sourceEnd ?? null,
+    words: (c.words || []).map((w) => ({ x: w.x, t: w.t, e: w.e, gap: w.gap, ...(w.br ? { br: true } : {}) })),
     // fin de la musique de jeu : le fichier continue ensuite avec la reprise chantée de la révélation
     bedEnd: bedEnd(c), revealAt: c.revealAt ?? null, lists: library.listsOf(songKey(c)),
     media: existsSync(metaFile(mediaOf(c.id))) ? mediaOf(c.id) : null,
@@ -62,6 +64,17 @@ export function createCatalog({ content, contentFile, library, clipsDir, worksho
     const clip = content.find((c) => c.id === req.params.clipId);
     const title = String(req.body?.title ?? clip.title).trim().slice(0, 80), film = String(req.body?.film ?? clip.film).trim().slice(0, 80);
     if (!title || !film) return res.status(400).json({ error: 'Indiquez le titre et l’artiste (ou le film).' });
+    // paroles corrigées et découpées à la main : une liste de lignes, autant de mots qu'avant (le minutage reste)
+    const lyrics = req.body?.lyrics;
+    if (lyrics !== undefined) {
+      const flat = Array.isArray(lyrics) && lyrics.every((l) => Array.isArray(l) && l.length) ? lyrics.flat() : null;
+      if (!flat || flat.length !== clip.words.length || !flat.every((x) => typeof x === 'string' && x.trim() && x.length <= 80 && !/\s/.test(x.trim())))
+        return res.status(400).json({ error: `Les paroles doivent garder ${clip.words.length} mots.` });
+      const starts = new Set(); let n = 0;
+      for (const l of lyrics) { starts.add(n); n += l.length; }
+      clip.words.forEach((w, i) => { w.x = flat[i].trim(); if (starts.has(i)) w.br = true; else delete w.br; });
+      clip.answer = clip.words.filter((w) => w.gap).map((w) => w.x).join(' ');
+    }
     const oldKey = songKey(clip);
     Object.assign(clip, { title, film, updatedAt: Date.now() });
     const newKey = songKey(clip);
