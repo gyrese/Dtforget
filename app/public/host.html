@@ -193,6 +193,8 @@ socket.on("round:intro", ({ round, total, film, title }) => {
   $("play-film").textContent = film + " · " + title;
   $("rev-round").textContent = "Révélation · manche " + round + " / " + total;
   show("s-intro");
+  // entre deux chansons : l'image de la série en fond, assombrie comme pendant la manche
+  if (roomCover) background.set({ background: null }, roomCover);
 });
 
 socket.on("round:clip", (c) => {
