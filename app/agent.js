@@ -18,7 +18,7 @@ if (!server || !token) { console.error('Réglez PUBLISH_URL et PUBLISH_TOKEN dan
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const root = join(process.env.DATA_DIR || join(here, 'data'), 'agent');
 mkdirSync(root, { recursive: true });
-const py = createPyWorker(join(here, '..', 'spike'));
+const py = createPyWorker(join(here, '..', 'spike'), { binDir: join(process.env.DATA_DIR || join(here, 'data'), 'bin') });
 const auth = { Authorization: 'Bearer ' + token };
 const log = (...a) => console.log(new Date().toISOString().slice(0, 19).replace('T', ' '), ...a);
 
@@ -29,7 +29,7 @@ async function download(id, dir) {
   await pipeline(Readable.fromWeb(res.body), createWriteStream(join(dir, 'source' + ext)));
 }
 async function upload(id, dir, name) {
-  const res = await fetch(`${server}/api/agent/${id}/${name}`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/octet-stream' }, body: readFileSync(join(dir, name)), signal: AbortSignal.timeout(300000) });
+  const res = await fetch(`${server}/api/agent/${id}/${name}`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/octet-stream' }, body: readFileSync(join(dir, name)), signal: AbortSignal.timeout(name === 'source.mp4' ? 1800000 : 300000) });
   if (!res.ok) throw new Error('Le PC n’a pas pu renvoyer le résultat au serveur.');
 }
 
@@ -38,13 +38,14 @@ async function handle(job, step) {
   const dir = join(root, job.id);
   mkdirSync(dir, { recursive: true });
   if (job.cmd === 'analyze') {
-    if (!readdirSync(dir).some((f) => f.startsWith('source.'))) { step('fetch'); await download(job.id, dir); }
+    // lien YouTube : la vidéo est téléchargée sur ce PC par le worker, puis renvoyée au serveur pour le fond
+    if (!job.url && !readdirSync(dir).some((f) => f.startsWith('source.'))) { step('fetch'); await download(job.id, dir); }
     const done = await py.runJob(dir, job, step);
     // aperçu léger pour le bouton « Écouter » de l'atelier en ligne
     const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', join(dir, 'audio.wav'), '-c:a', 'libmp3lame', '-b:a', '128k', join(dir, 'preview.mp3')]);
     if (r.status !== 0) throw new Error('Conversion de l’aperçu impossible (ffmpeg).');
     step('return');
-    for (const name of ['preview.mp3', 'info.json', ...(done.lyrics ? ['words.json'] : [])]) await upload(job.id, dir, name);
+    for (const name of ['preview.mp3', 'info.json', ...(done.lyrics ? ['words.json'] : []), ...(job.url ? ['source.mp4'] : [])]) await upload(job.id, dir, name);
     return done;
   }
   // les pistes séparées restent sur ce PC : sans elles, il faut refaire l'analyse

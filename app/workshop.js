@@ -38,7 +38,10 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
 
   const afterLyrics = (id) => (done) => {
     const info = readJson(join(dirOf(id), 'info.json'));
-    return { status: done.lyrics ? 'ready' : 'needs_lyrics', duration: info.duration, lyrics: info.lyrics };
+    const patch = { status: done.lyrics ? 'ready' : 'needs_lyrics', duration: info.duration, lyrics: info.lyrics };
+    // lien YouTube : titre et artiste laissés vides, repris de la vidéo
+    if (typeof done.title === 'string' && !meta(id).title) Object.assign(patch, { title: done.title.slice(0, 80), artist: String(done.artist || '').slice(0, 80) });
+    return patch;
   };
 
   // Reprise après un arrêt du serveur en plein traitement : l'analyse repart toute seule (le fichier est déjà là),
@@ -47,7 +50,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     if (!ID.test(id) || !existsSync(join(dirOf(id), 'meta.json')) || meta(id).status !== 'working') continue;
     const m = meta(id);
     if (existsSync(join(dirOf(id), 'info.json'))) saveMeta(id, { status: existsSync(join(dirOf(id), 'words.json')) ? 'ready' : 'needs_lyrics' });
-    else if (!busy) run(id, { cmd: 'analyze', title: m.title, artist: m.artist }, afterLyrics(id));
+    else if (!busy) run(id, { cmd: 'analyze', title: m.title, artist: m.artist, ...(m.url ? { url: m.url } : {}) }, afterLyrics(id));
     else saveMeta(id, { status: 'error', error: 'Traitement interrompu.' });
   }
 
@@ -95,9 +98,21 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     });
   });
 
+  // Lien YouTube : la vidéo est téléchargée par la machine qui fait l'analyse (yt-dlp), puis tout s'enchaîne
+  router.post('/youtube', guardBusy, (req, res) => {
+    const videoId = youtubeId(String(req.body?.url || '').trim());
+    if (!videoId) return res.status(400).json({ error: 'Collez un lien YouTube valide (youtube.com/watch?v=… ou youtu.be/…).' });
+    const title = String(req.body?.title || '').trim().slice(0, 80), artist = String(req.body?.artist || '').trim().slice(0, 80);
+    const id = randomUUID(), url = 'https://www.youtube.com/watch?v=' + videoId;
+    mkdirSync(dirOf(id));
+    writeJson(join(dirOf(id), 'meta.json'), { id, file: url, url, title, artist, status: 'working', clips: [] });
+    run(id, { cmd: 'analyze', title, artist, url }, afterLyrics(id));
+    res.json({ id });
+  });
+
   router.get('/:id', (req, res) => {
     const m = meta(req.params.id);
-    const state = { id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null, step: jobs.get(m.id)?.step || null, duration: m.duration, background: m.background, sourceVideo: existsSync(join(dirOf(m.id), 'source.mp4')), lyrics: m.lyrics || null, clips: m.clips || [] };
+    const state = { id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null, step: jobs.get(m.id)?.step || null, duration: m.duration, background: m.background, sourceVideo: existsSync(join(dirOf(m.id), 'source.mp4')), lyrics: m.lyrics || null, clips: m.clips || [], url: m.url || null };
     const wordsFile = join(dirOf(m.id), 'words.json');
     if (m.status === 'ready' && existsSync(wordsFile)) state.words = readJson(wordsFile).map((w) => ({ x: w.text, t: w.start, e: w.end, l: w.line, u: w.uncertain }));
     res.json(state);

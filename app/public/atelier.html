@@ -101,6 +101,7 @@ audio{width:100%;margin-top:18px}
 .lib .who{min-width:0}.lib .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lib .who small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lib .ans{color:var(--led)}
+.yt-row{display:block;margin-top:16px}.yt-row input{margin-top:6px}.yt-row small{display:block;margin-top:6px}
 .done-answer{margin:14px 0 0;padding:12px 16px;border:1px solid var(--rule-strong);border-left:4px solid var(--led);border-radius:var(--r-md);background:var(--deck-2);font-size:13px;color:var(--muted)}
 .done-answer b{display:block;margin-top:4px;color:var(--ink);font-size:22px;line-height:1.3}
 .lib .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -129,7 +130,8 @@ audio{width:100%;margin-top:18px}
   <section id="v-media">
     <form class="card" id="media-form">
       <label class="drop" id="drop"><input type="file" id="file" accept="audio/*,video/*,.mkv,.flac,.opus"><strong id="drop-title">Déposez une vidéo ou un fichier audio</strong><span id="drop-sub">ou cliquez pour le choisir</span><small>mp3, m4a, wav, flac, mp4, webm, mkv · 10 minutes au maximum</small></label>
-      <div class="fields"><label>Titre de la chanson<input type="text" id="title" maxlength="80" required autocomplete="off"></label><label>Artiste ou film<input type="text" id="artist" maxlength="80" required autocomplete="off"></label></div>
+      <label class="yt-row">Ou un lien YouTube<input type="text" id="yt-url" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…"><small class="note">La vidéo est téléchargée puis analysée à la suite. Titre et artiste : laissez vides pour reprendre ceux de la vidéo.</small></label>
+      <div class="fields"><label>Titre de la chanson<input type="text" id="title" maxlength="80" autocomplete="off"></label><label>Artiste ou film<input type="text" id="artist" maxlength="80" autocomplete="off"></label></div>
       <div class="row"><p class="status grow" id="media-status" role="alert"></p><button class="btn" id="analyze" disabled>Analyser la chanson →</button></div>
     </form>
     <div class="row" id="publish-all-row" hidden><button class="quiet" id="publish-all" type="button">Envoyer toute la bibliothèque en ligne ↑</button><p class="note grow" id="publish-all-status" role="status"></p></div>
@@ -257,7 +259,7 @@ const $ = (id) => document.getElementById(id);
 let remoteLists = null; // listes du serveur en ligne (application de bureau)
 const config = fetch('/api/config').then((r) => r.json()).catch(() => ({}));
 let remote = false; // atelier en ligne : c'est le PC qui travaille pour le serveur
-const STEPS = [['upload', 'Envoi du fichier'], ['fetch', 'Transfert vers votre PC'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot'], ['return', 'Retour des résultats']];
+const STEPS = [['upload', 'Envoi du fichier'], ['download', 'Téléchargement de la vidéo YouTube'], ['fetch', 'Transfert vers votre PC'], ['audio', 'Préparation de l’audio'], ['lyrics_search', 'Recherche des paroles'], ['separate', 'Séparation de la voix et de la musique'], ['listen', 'Écoute de la chanson'], ['align', 'Synchronisation des paroles, mot par mot'], ['return', 'Retour des résultats']];
 const LIBRARY = location.hash === '#bibliotheque';
 // nouveau passage demandé depuis la bibliothèque : il remplacera cet extrait
 let replaceId = new URLSearchParams(location.search).get('replace');
@@ -300,9 +302,17 @@ function guess(name) {
   const parts = base.split(/\s[-–—]\s/);
   return parts.length > 1 ? { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() } : { artist: '', title: base };
 }
+// lien YouTube collé : il remplace le fichier choisi
+const ytLink = (v) => /^(https?:\/\/)?((www|m)\.)?(youtube\.com\/(watch\?|shorts\/|live\/|embed\/)|youtu\.be\/)\S+/i.test(v.trim());
+let fromYoutube = false;
+$('yt-url').oninput = () => {
+  const ok = ytLink($('yt-url').value);
+  if (ok && file) { file = null; $('file').value = ''; $('drop-title').textContent = 'Déposez une vidéo ou un fichier audio'; $('drop-sub').textContent = 'ou cliquez pour le choisir'; }
+  $('analyze').disabled = !ok && !file; $('media-status').textContent = '';
+};
 function setFile(f) {
   if (!f) return;
-  file = f;
+  file = f; $('yt-url').value = '';
   $('drop-title').textContent = f.name; $('drop-sub').textContent = (f.size / 1048576).toFixed(1) + ' Mo · cliquez pour changer de fichier';
   const g = guess(f.name);
   if (!$('title').value) $('title').value = g.title;
@@ -315,10 +325,19 @@ const drop = $('drop');
 for (const ev of ['dragenter', 'dragover']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
 for (const ev of ['dragleave', 'drop']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); });
 drop.addEventListener('drop', (e) => setFile(e.dataTransfer.files[0]));
-$('media-form').onsubmit = (e) => {
+$('media-form').onsubmit = async (e) => {
   e.preventDefault();
+  if (!file && ytLink($('yt-url').value)) {
+    kind = 'analyze'; fromYoutube = true; $('analyze').disabled = true;
+    try {
+      id = (await post('/youtube', { url: $('yt-url').value.trim(), title: $('title').value, artist: $('artist').value })).id;
+      history.replaceState(null, '', '#' + id); showWork('download'); poll();
+    } catch (error) { $('media-status').textContent = error.message; $('analyze').disabled = false; }
+    return;
+  }
   if (!file) return;
-  kind = 'analyze'; showWork('upload'); $('upload-bar').hidden = false;
+  if (!$('title').value.trim() || !$('artist').value.trim()) { $('media-status').textContent = 'Indiquez le titre et l’artiste (ou le film).'; return; }
+  kind = 'analyze'; fromYoutube = false; showWork('upload'); $('upload-bar').hidden = false;
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/workshop/upload?' + new URLSearchParams({ name: file.name, title: $('title').value, artist: $('artist').value }));
   xhr.setRequestHeader('Content-Type', 'application/octet-stream');
@@ -337,7 +356,10 @@ $('media-form').onsubmit = (e) => {
 
 /* 2. Analyse */
 function showWork(step) {
-  const all = STEPS.filter(([k]) => remote || (k !== 'fetch' && k !== 'return'));
+  const all = STEPS.filter(([k]) => (remote || (k !== 'fetch' && k !== 'return')) && (fromYoutube ? k !== 'upload' && k !== 'fetch' : k !== 'download'));
+  // « download:42.0% » : avancement du téléchargement YouTube
+  const pct = /^download:\s*([\d.]+%)/.exec(step || '')?.[1];
+  if (pct) step = 'download';
   const steps = kind === 'build' ? [['build', 'Fabrication de l’extrait']] : kind === 'align' ? all.filter(([k]) => k === 'lyrics_search' || k === 'align') : all;
   const waiting = step === 'waiting_pc';
   $('work-wait').hidden = !waiting;
@@ -345,15 +367,16 @@ function showWork(step) {
   $('work-title').textContent = kind === 'build' ? 'Fabrication de l’extrait…' : kind === 'align' ? 'Synchronisation des paroles…' : 'Analyse en cours…';
   $('work-lead').hidden = kind !== 'analyze';
   const at = Math.max(0, steps.findIndex(([k]) => k === step));
-  $('progress').replaceChildren(...steps.map(([, label], i) => { const li = document.createElement('li'); li.textContent = label; li.className = waiting ? (kind === 'analyze' && i === 0 ? 'done' : '') : i < at ? 'done' : i === at ? 'now' : ''; return li; }));
+  $('progress').replaceChildren(...steps.map(([k, label], i) => { const li = document.createElement('li'); li.textContent = label + (k === 'download' && pct && i === at ? ' · ' + pct : ''); li.className = waiting ? (kind === 'analyze' && i === 0 ? 'done' : '') : i < at ? 'done' : i === at ? 'now' : ''; return li; }));
   if ($('v-work').hidden) view('work', kind === 'build' ? 3 : kind === 'align' ? 2 : 1);
 }
 async function poll() {
   clearTimeout(pollTimer);
   try { state = await api('/' + id); }
   catch (error) { history.replaceState(null, '', location.pathname); id = null; view('media', 0); $('media-status').textContent = error.message; return; }
+  fromYoutube = Boolean(state.url);
   if (state.status === 'working') { showWork(state.step); pollTimer = setTimeout(poll, 1000); return; }
-  if (state.status === 'error') { view('media', 0); $('title').value = state.title; $('artist').value = state.artist; $('media-status').textContent = state.error + ' Choisissez à nouveau le fichier pour réessayer.'; return; }
+  if (state.status === 'error') { view('media', 0); $('title').value = state.title; $('artist').value = state.artist; $('media-status').textContent = state.error + (state.url ? ' Relancez avec le lien pour réessayer.' : ' Choisissez à nouveau le fichier pour réessayer.'); if (state.url) { $('yt-url').value = state.url; $('analyze').disabled = false; } return; }
   if (state.status === 'needs_lyrics') return showFind(false);
   if (kind === 'build' && state.clips.length) return showDone();
   showLyrics();

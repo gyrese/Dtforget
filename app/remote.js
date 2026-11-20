@@ -7,7 +7,7 @@ import { join, extname } from 'node:path';
 import { timingSafeEqual, randomUUID } from 'node:crypto';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const RESULT_FILES = new Set(['info.json', 'words.json', 'preview.mp3', 'clip.json', 'clip.mp3']);
+const RESULT_FILES = new Set(['info.json', 'words.json', 'preview.mp3', 'clip.json', 'clip.mp3', 'source.mp4']); // source.mp4 : vidéo YouTube téléchargée par le PC
 const MAX_RESULT = 60 * 1024 * 1024;
 
 export function createRemoteRunner({ io, root, token }) {
@@ -62,8 +62,9 @@ export function createRemoteRunner({ io, root, token }) {
     const file = join(root, req.params.id, req.params.name);
     const out = createWriteStream(file + '.part');
     let size = 0, failed = false;
+    const max = req.params.name === 'source.mp4' ? 800 * 1024 * 1024 : MAX_RESULT;
     const fail = (status, error) => { if (failed) return; failed = true; out.destroy(); rmSync(file + '.part', { force: true }); if (!res.headersSent) res.status(status).json({ error }); };
-    req.on('data', (chunk) => { size += chunk.length; if (size > MAX_RESULT) { fail(413, 'Fichier trop volumineux.'); req.destroy(); } });
+    req.on('data', (chunk) => { size += chunk.length; if (size > max) { fail(413, 'Fichier trop volumineux.'); req.destroy(); } });
     req.on('aborted', () => fail(400, 'Envoi interrompu.'));
     out.on('error', () => fail(500, 'Écriture impossible.'));
     out.on('finish', () => { if (failed) return; renameSync(file + '.part', file); res.json({ ok: true }); });
