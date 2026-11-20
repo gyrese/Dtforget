@@ -257,7 +257,7 @@ function pushRemote(room) {
 io.on("connection", (socket) => {
   socket.on("host:create", ({ listId = 'disney', rounds = ROUNDS, answerSeconds } = {}) => {
     if (socket.data.code) return;
-    const total = [3, 5, 10].includes(rounds) ? rounds : ROUNDS;
+    const total = Number.isInteger(rounds) && rounds >= 1 && rounds <= 200 ? rounds : ROUNDS; // limité ensuite aux chansons de la liste
     const answerMs = [5, 10, 15, 20, 30, 60].includes(answerSeconds) ? answerSeconds * 1000 : ANSWER_MS;
     const songs = pick(total, library.clips(listId));
     if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');

@@ -88,6 +88,7 @@ h1 em{font-style:normal;color:var(--spot)}
 .round-options label{display:flex;flex-direction:row;align-items:center;min-height:48px;gap:10px;border:1px solid var(--rule-strong);border-radius:var(--r-md);padding:10px 16px;color:var(--chalk);cursor:pointer;font-size:15px;font-weight:700}
 .round-options label:has(:checked){background:var(--deck-3);border-color:var(--spot);color:var(--spot)}
 .round-options input{width:16px;min-height:16px;accent-color:var(--spot)}
+.round-options input[type=number]{width:4.5em;min-height:32px;padding:2px 8px;border:1px solid var(--rule-strong);border-radius:var(--r-sm,6px);background:var(--deck-2);color:inherit;font:inherit;text-align:center}
 .song-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 28px;counter-reset:song}
 .song-tile{position:relative;padding:16px 16px 16px 48px;background:transparent;border:0;border-top:1px solid var(--rule);border-radius:0;counter-increment:song;font-size:16px;font-weight:700}
 .song-tile::before{content:counter(song,decimal-leading-zero);position:absolute;left:4px;top:17px;color:var(--spot);font:700 13px var(--f-mono)}

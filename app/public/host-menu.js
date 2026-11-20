@@ -52,7 +52,8 @@ function openDetail(id) {
   $('detail-name').textContent = selectedList.name;
   $('detail-description').textContent = selectedList.description;
   const count = selectedList.songIds.length;
-  document.querySelectorAll('[name=rounds]').forEach(input => { input.disabled = !count; });
+  document.querySelectorAll('[name=rounds], #rounds-custom').forEach(input => { input.disabled = !count; });
+  $('rounds-custom').max = Math.max(1, count);
   updateRounds();
   $('create-room').disabled = !count || !socket.connected;
   $('detail-hint').textContent = count ? '' : 'Ajoutez des chansons pour jouer.';
@@ -116,7 +117,7 @@ $('list-form').onsubmit = async (event) => {
 $('create-room').onclick = () => {
   if (!socket.connected || creatingRoom) return;
   creatingRoom = true; $('create-room').disabled = true; $('create-room').textContent = 'Création du salon…';
-  socket.emit('host:create', { listId: selectedList.id, rounds: Number(document.querySelector('[name=rounds]:checked').value), answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value) });
+  socket.emit('host:create', { listId: selectedList.id, rounds: roundsWanted(), answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value) });
 };
 socket.on('host:created', ({ code, rounds, joinUrl, qr }) => {
   roomCover = coverSource(selectedList.theme, selectedList.coverImage);
@@ -169,12 +170,19 @@ $('clear-selection').onclick = () => { selectedSongs.clear(); renderPicker(); };
 $('fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { notify('Le plein écran est indisponible dans ce navigateur.'); } };
 document.addEventListener('fullscreenchange', () => $('fullscreen').setAttribute('aria-label',document.fullscreenElement ? 'Quitter le plein écran' : 'Passer en plein écran'));
 
+// 3, 5, 10 manches, ou le nombre qu'on veut (au plus une manche par chanson de la liste)
+function roundsWanted() {
+ const choice = document.querySelector('[name=rounds]:checked').value;
+ return choice === 'custom' ? Math.max(1, Math.round(Number($('rounds-custom').value)) || 1) : Number(choice);
+}
 function updateRounds() {
  const count = selectedList?.songIds.length || 0;
- const rounds = Number(document.querySelector('[name=rounds]:checked').value);
- $('detail-count').textContent = count + ' chansons · ' + Math.min(rounds,count) + ' manches';
+ $('detail-count').textContent = count + ' chansons · ' + Math.min(roundsWanted(),count) + ' manches';
 }
 document.querySelectorAll('[name=rounds]').forEach(input => input.addEventListener('change',updateRounds));
+// taper un nombre choisit cette option
+$('rounds-custom').addEventListener('input', () => { document.querySelector('[name=rounds][value=custom]').checked = true; updateRounds(); });
+$('rounds-custom').addEventListener('focus', () => { document.querySelector('[name=rounds][value=custom]').checked = true; updateRounds(); });
 
 function updateCoverPreview() { $('cover-preview').src = coverSource($('list-theme').value,draftCover); $('remove-cover').disabled = !draftCover; }
 $('list-theme').addEventListener('change',updateCoverPreview);
