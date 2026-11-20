@@ -41,7 +41,7 @@ const CLIPS_DIR = join(DATA_DIR, 'clips');
 const LEGACY_CLIPS = join(here, '..', 'spike', 'out', 'ECOUTE');
 const ROUNDS = 5;          // nombre de manches par partie
 const INTRO_MS = Number(process.env.INTRO_MS || 3000);     // présentation avant l'extrait
-const ANSWER_MS = Number(process.env.ANSWER_MS || 10000);   // chrono par défaut, après l'instrumental (réglable à la création du salon)
+const ANSWER_MS = Number(process.env.ANSWER_MS || 60000);   // chrono par défaut, après l'instrumental (réglable à la création du salon)
 const PORT = Number(process.env.PORT || 3000);
 
 const app = express();
@@ -80,7 +80,7 @@ if (ATELIER === 'remote' && process.env.IMPORT_TOKEN) {
   app.use('/api/agent', remote.router);
   workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, catalog, runner: remote });
 } else if (ATELIER === 'local') {
-  const py = createPyWorker(join(here, '..', 'spike'));
+  const py = createPyWorker(join(here, '..', 'spike'), { binDir: join(DATA_DIR, 'bin') });
   workshop = createWorkshop({ dataDir: DATA_DIR, content: CONTENT, contentFile: CONTENT_FILE, library, catalog, runner: { run: (_id, dir, job, onStep) => py.runJob(dir, job, onStep) } });
 }
 if (workshop) {
@@ -258,7 +258,7 @@ io.on("connection", (socket) => {
   socket.on("host:create", ({ listId = 'disney', rounds = ROUNDS, answerSeconds } = {}) => {
     if (socket.data.code) return;
     const total = [3, 5, 10].includes(rounds) ? rounds : ROUNDS;
-    const answerMs = [5, 10, 15, 20, 30].includes(answerSeconds) ? answerSeconds * 1000 : ANSWER_MS;
+    const answerMs = [5, 10, 15, 20, 30, 60].includes(answerSeconds) ? answerSeconds * 1000 : ANSWER_MS;
     const songs = pick(total, library.clips(listId));
     if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');
     const code = code4();
