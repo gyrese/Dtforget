@@ -223,8 +223,8 @@ audio{width:100%;margin-top:18px}
       <div class="done-head"><div class="grow"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p></div>
         <p class="done-answer" id="done-answer" hidden>Paroles à deviner<b id="done-answer-text"></b></p></div>
       <audio id="done-audio" preload="auto" hidden></audio>
-      <div class="transport"><button class="btn" id="hear-round" type="button">▶ Écouter l’extrait</button>
-        <span class="now"><b id="tc-part">Comme en jeu</b><small class="note" id="tc-hint">La manche (la voix s’arrête aux ciseaux), puis la révélation chantée.</small></span><output class="tc" id="tc" title="Position dans la chanson">0:00,0</output></div>
+      <div class="transport"><button class="btn" id="hear-round" type="button">▶ Écouter la manche</button>
+        <span class="now"><b id="tc-part">Comme en jeu</b><small class="note" id="tc-hint">La voix s’arrête aux ciseaux, la musique continue seule.</small></span><output class="tc" id="tc" title="Position dans la chanson">0:00,0</output></div>
     </div>
 
     <div class="montage" id="trim" hidden>
@@ -654,12 +654,12 @@ function showDone() {
   config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
 // le fichier contient la manche puis, après une seconde de silence, la reprise chantée de la révélation :
-// un seul bouton : la manche puis, sans le silence qui les sépare dans le fichier, la révélation chantée
+// un seul bouton : la manche, qui s'arrête comme en jeu à la fin de la musique (la révélation chantée vient après les réponses)
 let doneParts = null;
 const doneAudio = $('done-audio');
 doneAudio.addEventListener('play', stopSourcePreview);
 doneAudio.addEventListener('timeupdate', () => {
-  if (doneParts && doneAudio.currentTime >= doneParts.bedEnd && doneAudio.currentTime < doneParts.revealAt - 0.05) doneAudio.currentTime = doneParts.revealAt;
+  if (doneParts && doneAudio.currentTime >= doneParts.bedEnd) { doneAudio.pause(); doneAudio.currentTime = 0; }
   paintTransport();
 });
 $('hear-round').onclick = () => {
@@ -669,10 +669,9 @@ $('hear-round').onclick = () => {
 // ce qu'on entend en ce moment : l'extrait (manche ou révélation) ou un réglage écouté sur la chanson d'origine
 function paintTransport() {
   const clip = !doneAudio.paused, song = !player.paused && !$('v-done').hidden;
-  const reveal = clip && doneParts && doneAudio.currentTime >= doneParts.revealAt - 0.1;
-  $('hear-round').textContent = clip || song ? '■ Arrêter' : '▶ Écouter l’extrait';
-  $('tc-part').textContent = reveal ? 'La révélation' : clip ? 'La manche' : song ? 'Réglage en écoute' : 'Comme en jeu';
-  $('tc-hint').textContent = reveal ? 'La reprise chantée, après la réponse des joueurs.' : clip ? 'La voix s’arrête aux ciseaux, la musique continue seule.' : song ? 'Sur la chanson d’origine, avec la voix.' : 'La manche (la voix s’arrête aux ciseaux), puis la révélation chantée.';
+  $('hear-round').textContent = clip || song ? '■ Arrêter' : '▶ Écouter la manche';
+  $('tc-part').textContent = clip ? 'La manche' : song ? 'Réglage en écoute' : 'Comme en jeu';
+  $('tc-hint').textContent = song ? 'Vos réglages, pas encore appliqués : la voix s’arrête aux ciseaux.' : 'La voix s’arrête aux ciseaux, la musique continue seule.';
 }
 for (const media of [doneAudio, player]) for (const ev of ['play', 'pause']) media.addEventListener(ev, paintTransport);
 $('another-gap').onclick = () => { stopSourcePreview(); doneAudio.pause(); showLyrics(); };
@@ -698,20 +697,52 @@ function extractBounds(t) {
   return { cut, latestStart, earliestEnd, start: Math.min(t.start, latestStart), end: clamp(end, earliestEnd, t.duration) };
 }
 let pendingSourcePreview, sourceCue;
+// après les ciseaux, on n'entend que la musique, comme en jeu : un second lecteur joue l'instrumental
+// et prend le relais à la coupure (la chanson d'origine continue, muette, pour la tête de lecture)
+const instrPlayer = new Audio();
+instrPlayer.preload = 'auto';
+let swapTimer = null;
+const instrSrc = (mediaId) => '/api/workshop/' + mediaId + '/instrumental';
+function loadInstrumental(mediaId) { if (!instrPlayer.src.endsWith(instrSrc(mediaId))) instrPlayer.src = instrSrc(mediaId); }
+instrPlayer.addEventListener('error', () => { player.volume = 1; }); // pas d'instrumental (serveur en ligne) : la chanson reste audible
+player.addEventListener('pause', () => { clearTimeout(swapTimer); instrPlayer.pause(); player.volume = 1; });
 function stopSourcePreview() {
   if (pendingSourcePreview) player.removeEventListener('loadedmetadata', pendingSourcePreview);
   pendingSourcePreview = null;
   sourceCue?.label.classList.remove('sync-now');
   sourceCue = null;
+  clearTimeout(swapTimer); instrPlayer.pause(); player.volume = 1;
   player.pause();
 }
-function playSource(mediaId, from, until, cue = null) {
+function playSource(mediaId, from, until, cue = null, voiceUntil = null) {
   stopSourcePreview(); doneAudio.pause();
   const src = '/api/workshop/' + mediaId + '/audio';
   if (!player.src.endsWith(src)) { player.src = src; delete player.dataset.lib; }
   stopAt = until;
   sourceCue = cue;
-  const go = () => { pendingSourcePreview = null; player.currentTime = from; player.play().catch(() => {}); };
+  const silence = Number.isFinite(voiceUntil) && voiceUntil < until;
+  if (silence) loadInstrumental(mediaId);
+  const toInstrumental = () => {
+    if (instrPlayer.error) return;
+    if (Math.abs(instrPlayer.currentTime - player.currentTime) > 0.08) instrPlayer.currentTime = player.currentTime;
+    player.volume = 0; instrPlayer.play().catch(() => { player.volume = 1; });
+  };
+  const go = () => {
+    pendingSourcePreview = null; player.currentTime = from;
+    if (silence && !instrPlayer.error) {
+      instrPlayer.currentTime = Math.max(from, voiceUntil);
+      if (from >= voiceUntil - 0.01) player.addEventListener('playing', toInstrumental, { once: true });
+      else {
+        const wait = () => {
+          if (player.paused) return;
+          const left = voiceUntil - player.currentTime;
+          if (left <= 0.01) toInstrumental(); else swapTimer = setTimeout(wait, Math.min(200, Math.max(5, left * 1000 - 15)));
+        };
+        player.addEventListener('playing', wait, { once: true });
+      }
+    }
+    player.play().catch(() => {});
+  };
   if (player.readyState >= 1) go();
   else { pendingSourcePreview = go; player.addEventListener('loadedmetadata', go, { once: true }); player.load(); }
 }
@@ -812,7 +843,7 @@ function showTrim(clip) {
   $('trim-status').textContent = ''; delete $('trim-status').dataset.error;
   $('tc').textContent = fmt1(clip.sourceStart);
   fitView(); requestAnimationFrame(paintTrim);
-  const songId = id; mt.wave = null;
+  const songId = id; mt.wave = null; loadInstrumental(songId);
   loadWave(songId).then((wave) => { if (id === songId && trim.clip === clip) { mt.wave = wave; paintTrim(); } });
 }
 function paintTrim() {
@@ -889,7 +920,7 @@ function nudge(k, d) {
 // chaque réglage se fait entendre
 function hearTrim(which) {
   const { start, end } = extractBounds(trim);
-  playSource(id, which === 0 ? start : Math.max(0, end - 4), which === 0 ? start + 4 : end);
+  playSource(id, which === 0 ? start : Math.max(0, end - 4), which === 0 ? start + 4 : end, null, cutAtSource(trim));
 }
 function hearCut() {
   const cut = cutAtSource(trim);
@@ -897,7 +928,7 @@ function hearCut() {
 }
 function hearLyrics() {
   const from = trim.from + trim.offset, to = trim.to + trim.offset;
-  playSource(id, Math.max(0, from - 3), Math.min(trim.duration, to + 2), { label: $('mt-gapcol'), from, to });
+  playSource(id, Math.max(0, from - 3), Math.min(trim.duration, to + 2), { label: $('mt-gapcol'), from, to }, cutAtSource(trim));
 }
 const hearOf = (k) => k === 'start' ? hearTrim(0) : k === 'end' ? hearTrim(1) : k === 'cut' ? hearCut() : hearLyrics();
 // glisser une poignée, les ciseaux ou la piste des paroles ; un simple clic écoute depuis cet endroit

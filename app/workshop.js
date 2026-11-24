@@ -123,6 +123,12 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     const file = ['preview.mp3', 'audio.wav'].map((name) => join(dirOf(req.params.id), name)).find(existsSync);
     file ? res.sendFile(file) : res.status(404).end();
   });
+  // la musique seule : ce qu'on entend en jeu après la coupure (absente du serveur en ligne)
+  router.get('/:id/instrumental', (req, res) => {
+    const dir = dirOf(req.params.id);
+    const name = existsSync(dir) && readdirSync(dir).find((f) => /^instrumental_.*\.flac$/.test(f));
+    name ? res.sendFile(join(dir, name)) : res.status(404).end();
+  });
 
   // Autres paroles : fiche LRCLIB choisie à la main, ou texte collé
   router.post('/:id/lyrics', guardBusy, (req, res) => {

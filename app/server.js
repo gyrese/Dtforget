@@ -89,7 +89,7 @@ if (ATELIER === 'remote' && process.env.IMPORT_TOKEN) {
 if (workshop) {
   // code d'accès facultatif (ATELIER_PIN) ; la lecture audio passe sans, son adresse contient un identifiant non devinable
   app.use('/api/workshop', (req, res, next) => {
-    if (!ATELIER_PIN || (req.method === 'GET' && req.path.endsWith('/audio')) || req.headers['x-atelier-pin'] === ATELIER_PIN) return next();
+    if (!ATELIER_PIN || (req.method === 'GET' && /\/(audio|instrumental)$/.test(req.path)) || req.headers['x-atelier-pin'] === ATELIER_PIN) return next();
     res.status(401).json({ error: 'Code d’accès requis.' });
   }, catalog.router, workshop.router); // bibliothèque d'abord : /library ne doit pas passer pour un identifiant de média
 }
