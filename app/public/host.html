@@ -76,6 +76,12 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
     <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · projecteur ambre</option><option value="rock">Rock · rouge scène</option><option value="mix">Mix · cases cyan</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Tout sélectionner</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><div id="song-picker"></div><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
   </section>
   <div class="notice" id="notice" role="status" hidden></div>
+  <div class="stage-connection" id="stage-connection" role="status" hidden></div>
+  <button class="quiet stage-audio" id="resume-audio" type="button" hidden>Relancer le son</button>
+  <details class="live-join" id="live-join" hidden>
+    <summary>Rejoindre · <span id="live-code"></span></summary>
+    <div class="live-join-panel"><img id="live-qr" alt="QR code pour rejoindre le salon" width="180" height="180"><a id="live-link" target="_blank" rel="noopener">Ouvrir le lien joueurs</a></div>
+  </details>
   <section class="screen" id="s-lobby">
     <div class="top"><button class="quiet" id="leave-room">← Changer d’univers</button><span class="label" id="lobby-style"></span></div>
     <div class="lobby">
@@ -130,10 +136,11 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
 
 <audio id="audio" preload="auto"></audio>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/game-connection.js"></script>
 <script src="/stage-background.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const socket = io();
+const socket = gameSocket();
 // l'atelier n'existe que sur le PC qui a la carte graphique, pas sur le serveur en ligne
 fetch('/api/config').then((r) => r.json()).then((c) => { $('add-media').hidden = !c.atelier; }).catch(() => {});
 const audio = $("audio");
@@ -141,12 +148,18 @@ const background = createStageBackground($("stage-background"), audio);
 let clip = null;
 let roomCover = null;
 let lineGroups = [];
+let hostRound = 0;
+let frame;
 
 function show(id) {
   const previous = document.querySelector(".screen.on")?.id;
   // la musique n'appartient qu'à la manche et à sa révélation : tout autre écran la coupe
   if (id !== "s-play" && id !== "s-reveal") { audio.pause(); audio.volume = 1; }
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
+  const join = $("live-join");
+  join.hidden = !["s-intro", "s-play", "s-reveal"].includes(id);
+  if (!join.hidden) $(id).querySelector(".top").append(join);
+  if (id !== "s-play" && id !== "s-reveal") $("resume-audio").hidden = true;
   background.screen(id);
   document.dispatchEvent(new CustomEvent("host:screen", {detail:{id,previous}}));
   if (previous !== id) { window.scrollTo(0,0); const heading = $(id).querySelector("h1, .top button, button"); if (heading) { heading.tabIndex = heading.tabIndex < 0 ? -1 : heading.tabIndex; heading.focus({preventScroll:true}); } }
@@ -154,7 +167,7 @@ function show(id) {
 
 
 
-socket.on("players:update", (list) => {
+function renderPlayers(list) {
   const box = $("players");
   box.innerHTML = "";
   list.forEach((p) => {
@@ -166,26 +179,34 @@ socket.on("players:update", (list) => {
     const nm = document.createElement("b");
     nm.textContent = p.name;
     row.append(av, nm);
+    if (p.connected === false) {
+      row.classList.add("player-offline");
+      const status = document.createElement("small");
+      status.textContent = "Hors ligne";
+      row.append(status);
+    }
     box.appendChild(row);
   });
-  $("start").disabled = list.length < 1;
-  $("lobby-msg").textContent = list.length ? list.length + (list.length > 1 ? " joueurs prêts" : " joueur prêt") : "En attente des joueurs…";
-});
-socket.on("room:closed", () => { audio.pause(); show("s-menu"); });
+  const connected = list.filter(p => p.connected !== false).length;
+  $("start").disabled = connected < 1 || !socket.connected;
+  $("lobby-msg").textContent = connected ? connected + (connected > 1 ? " joueurs prêts" : " joueur prêt") : "En attente des joueurs…";
+}
+socket.on("players:update", renderPlayers);
 
 $("start").onclick = () => {
+  if (!socket.connected || $("start").disabled) return;
   // le clic autorise la lecture audio sur cette page
   audio.play().catch(() => {});
   audio.pause();
   socket.emit("host:start");
 };
 // la manche suivante attend le présentateur : ce bouton, la touche → ou la télécommande (/remote.html)
-$("next").onclick = () => { $("next").disabled = true; socket.emit("host:next"); };
+$("next").onclick = () => { if (socket.connected) socket.emit("host:next", { round: hostRound }); };
 document.addEventListener("keydown", (e) => { if ($("s-reveal").classList.contains("on") && !$("next").disabled && (e.key === "ArrowRight" || e.key === "PageDown")) $("next").click(); });
 socket.on("remote:start", () => { if (!$("start").disabled) $("start").click(); });
-$("again").onclick = () => { socket.emit("host:leave"); show("s-menu"); };
 
-socket.on("round:intro", ({ round, total, film, title }) => {
+function renderIntro({ round, total, film, title }) {
+  hostRound = round;
   $("intro-round").textContent = "Manche " + round + " / " + total;
   $("intro-title").textContent = title;
   $("intro-film").textContent = film;
@@ -195,9 +216,26 @@ socket.on("round:intro", ({ round, total, film, title }) => {
   show("s-intro");
   // entre deux chansons : l'image de la série en fond, assombrie comme pendant la manche
   if (roomCover) background.set({ background: null }, roomCover);
-});
+}
+socket.on("round:intro", renderIntro);
 
-socket.on("round:clip", (c) => {
+function playStageAudio() {
+  $("resume-audio").hidden = true;
+  audio.play().catch((error) => {
+    if (error.name === "NotAllowedError" && socket.connected) $("resume-audio").hidden = false;
+  });
+}
+$("resume-audio").onclick = () => {
+  playStageAudio();
+  if ($("s-play").classList.contains("on")) scheduleTick();
+};
+
+function scheduleTick() {
+  cancelAnimationFrame(frame);
+  frame = requestAnimationFrame(tick);
+}
+
+function renderClip(c) {
   $("answers").textContent = "0 réponse";
   tick.active = null;
   clip = c;
@@ -220,14 +258,16 @@ socket.on("round:clip", (c) => {
   $("bar-msg").textContent = "Répondez sur votre téléphone";
   audio.volume = 1;
   audio.src = c.audio;
-  audio.currentTime = 0;
+  audio.currentTime = Math.min(c.elapsed || 0, c.bedEnd);
   background.set(c, roomCover);
   show("s-play");
   // remis en haut une fois l'écran visible (masqué, le navigateur ignore le défilement)
   $("lyrics").scrollTo({ top: 0, behavior: "instant" });
-  audio.play().catch(() => {});
-  requestAnimationFrame(tick);
-});
+  if ((c.elapsed || 0) < c.bedEnd) playStageAudio();
+  else { audio.pause(); $("resume-audio").hidden = true; }
+  scheduleTick();
+}
+socket.on("round:clip", renderClip);
 
 // pendant la manche, l'instrumental s'éteint 5 s après le passage (fondu d'une seconde), puis le chrono
 const FADE = 1;
@@ -291,16 +331,16 @@ function tick() {
   });
   if (active && active !== tick.active) { const box = $("lyrics"); box.scrollTo({ top: active.offsetTop - box.offsetTop - box.clientHeight / 2 + active.clientHeight / 2, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" }); tick.active = active; }
   bedStop();
-  if (!audio.paused) requestAnimationFrame(tick);
+  if (!audio.paused) frame = requestAnimationFrame(tick);
 }
 
 // la barre suit la musique jusqu'à son arrêt, puis se vide pendant le chrono
 let answerTimer = null;
-socket.on("answer:open", ({ seconds, music = 0, timer = seconds }) => {
+function renderAnswerWindow({ seconds, music = 0, timer = seconds, elapsed = 0 }) {
   $("answers").textContent = "0 réponse";
   clearInterval(answerTimer);
-  const start = performance.now();
-  answerTimer = setInterval(() => {
+  const start = performance.now() - elapsed * 1000;
+  const refresh = () => {
     const elapsed = (performance.now() - start) / 1000;
     if (!$("s-play").classList.contains("on")) return clearInterval(answerTimer);
     if (elapsed < music) return;
@@ -308,18 +348,27 @@ socket.on("answer:open", ({ seconds, music = 0, timer = seconds }) => {
     $("timer").style.width = (left / timer) * 100 + "%";
     $("bar-msg").textContent = "Plus que " + Math.ceil(left) + " s pour répondre";
     if (left <= 0) clearInterval(answerTimer);
-  }, 100);
-});
-socket.on("answers:count", (n) => {
+  };
+  answerTimer = setInterval(refresh, 100);
+  refresh();
+}
+socket.on("answer:open", renderAnswerWindow);
+function renderAnswerCount(n) {
   $("answers").textContent = n + (n > 1 ? " réponses" : " réponse");
-});
+}
+socket.on("answers:count", renderAnswerCount);
 
-socket.on("reveal", ({ answer, film, title, ranking, last }) => {
+function renderReveal({ answer, film, title, ranking, last, elapsed = 0, audio: source, revealAt = clip?.revealAt }) {
   $("next").textContent = last ? "Classement final →" : "Manche suivante →";
   audio.pause();
   audio.volume = 1;
   // reprise 10 s avant le passage, avec les paroles, jusqu'à 10 s après
-  if (clip?.revealAt != null) { audio.currentTime = clip.revealAt; audio.play().catch(() => {}); }
+  $("resume-audio").hidden = true;
+  if (source && audio.getAttribute("src") !== source) audio.src = source;
+  if (revealAt != null && elapsed < 20 && (!Number.isFinite(audio.duration) || revealAt + elapsed < audio.duration)) {
+    audio.currentTime = revealAt + elapsed;
+    playStageAudio();
+  }
   $("rev-film").textContent = film + " · " + title;
   $("rev-answer").textContent = answer;
   const box = $("rev-ranking");
@@ -339,9 +388,10 @@ socket.on("reveal", ({ answer, film, title, ranking, last }) => {
   });
   show("s-reveal");
   $("next").disabled = false;
-});
+}
+socket.on("reveal", renderReveal);
 
-socket.on("game:over", (list) => {
+function renderFinal(list) {
   $("winner-title").textContent = list.length ? list[0].name + " gagne !" : "Classement final";
   const box = $("final");
   box.innerHTML = "";
@@ -355,7 +405,8 @@ socket.on("game:over", (list) => {
     box.appendChild(row);
   });
   show("s-over");
-});
+}
+socket.on("game:over", renderFinal);
 </script>
 <script src="/vendor/gsap/gsap.min.js"></script><script src="/vendor/animejs/anime.umd.min.js"></script><script src="/vendor/lottie/lottie_light.min.js"></script><script src="/host-menu.js"></script>
 <script src="/host-motion.js"></script>

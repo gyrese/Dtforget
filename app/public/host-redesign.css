@@ -209,3 +209,13 @@ h1[tabindex="-1"]:focus,[tabindex="-1"]:focus:not(button){outline:none}
 }
 @media(max-width:400px){.header-actions .quiet{padding:10px;font-size:12px}#fullscreen{display:none}.styles{grid-template-columns:1fr}.hero-actions .btn{width:100%}.code{font-size:72px}#qr{width:110px;height:110px}#join-url{font-size:11px!important}.lobby-join .msg{font-size:14px!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.motion-cover{display:none}}
+.live-join{position:relative;flex-shrink:0;z-index:8;color:var(--chalk);font:700 .9rem var(--f-text)}
+.live-join summary{cursor:pointer;padding:.55em .8em;border:1px solid var(--rule-strong);border-radius:var(--r-md);background:var(--deck);white-space:nowrap}
+.live-join summary span{color:var(--spot);font-family:var(--f-mono)}
+.live-join-panel{position:absolute;right:0;top:calc(100% + 6px);display:grid;justify-items:center;gap:.7em;padding:12px;background:var(--deck);border:1px solid var(--rule-strong);border-radius:var(--r-md)}
+.live-join-panel img{background:#fff;border-radius:8px}
+.live-join-panel a{color:var(--chalk);white-space:nowrap}
+.stage-connection,.stage-audio{position:fixed;bottom:16px;z-index:20;padding:10px 14px;border-radius:var(--r-md);background:var(--deck);color:var(--chalk)}
+.stage-connection{left:16px;border:1px solid var(--spot)}
+.stage-audio{right:16px}
+.player-offline{opacity:.65}

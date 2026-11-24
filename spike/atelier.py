@@ -149,16 +149,6 @@ def cmd_build(a) -> None:
     first, last = a.first, a.last
     if not 0 <= first <= last < len(words):
         raise SystemExit("Passage invalide.")
-    vocals = d / f"vocals_{SEP}.flac"
-    fw, lw = words[first], words[last]
-    pw = words[first - 1] if first > 0 else None
-    prev_end = pw["end"] if pw else max(0.0, fw["start"] - 0.3)
-    naive = max(0.0, min(prev_end + 0.05, fw["start"] - 0.02))
-    # coupure au creux d'énergie de la voix isolée, juste avant le premier mot à deviner
-    cut = valley_cut(vocals, pw["start"] if pw else max(0.0, fw["start"] - 1.0), fw["start"], naive)
-    if a.cut is not None:  # coupure déplacée à la main (voix prolongée ou raccourcie) : 3 s au plus autour du calcul
-        cut = round(min(max(0.0, cut - 3.0, a.cut), cut + 3.0, lw["end"]), 3)
-
     orig, sr = sf.read(d / "audio.wav", dtype="float32")
     instr, sr2 = sf.read(d / f"instrumental_{SEP}.flac", dtype="float32")
     if sr != sr2:
@@ -166,6 +156,26 @@ def cmd_build(a) -> None:
     n = min(len(orig), len(instr))
     orig, instr = orig[:n], instr[:n]
     total = n / sr
+
+    offset = a.lyrics_offset or 0.0
+    if not -30 <= offset <= 30:
+        raise SystemExit("Le décalage des paroles doit être compris entre −30 et +30 secondes.")
+    if offset:
+        if words[first]["start"] + offset < 0 or words[last]["end"] + offset > max(total, words[last]["end"]) + 0.01:
+            raise SystemExit("Le passage à deviner doit rester dans la chanson.")
+        words = [{**w, "start": w["start"] + offset, "end": w["end"] + offset} for w in words]
+    fw, lw = words[first], words[last]
+    if a.cut is not None and a.lyrics_offset is not None:
+        cut = max(0.0, min(a.cut, total, lw["end"]))
+    else:
+        pw = words[first - 1] if first > 0 else None
+        prev_start = max(0.0, pw["start"] if pw else fw["start"] - 1.0)
+        prev_end = pw["end"] if pw else max(0.0, fw["start"] - 0.3)
+        naive = max(0.0, min(prev_end + 0.05, fw["start"] - 0.02))
+        # Coupure au creux d'énergie de la voix isolée, juste avant le premier mot à deviner.
+        cut = valley_cut(d / f"vocals_{SEP}.flac", prev_start, fw["start"], naive)
+        if a.cut is not None:
+            cut = round(min(max(0.0, cut - 3.0, a.cut), cut + 3.0, lw["end"]), 3)
 
     t1 = min(total, lw["end"] + TAIL)
     # l'extrait dure TOTAL secondes et finit TAIL secondes après le passage ; le début se cale
@@ -177,6 +187,7 @@ def cmd_build(a) -> None:
         t0 = max(0.0, min(starts, key=lambda x: abs(x - 1.5 - t0)) - 1.5)
     if a.start is not None:  # début choisi à la main : au moins 2 s avant la coupure
         t0 = min(max(0.0, a.start), max(0.0, cut - 2.0))
+    t0 = min(t0, max(0.0, fw["start"]))
 
     def col(x):
         return x[:, None] if orig.ndim == 2 else x
@@ -207,7 +218,7 @@ def cmd_build(a) -> None:
     tmp.unlink()
 
     # à l'écran : les paroles jusqu'au trou, rien après (la suite n'est plus chantée)
-    sel = [(i, w) for i, w in enumerate(words) if t0 - 0.2 <= w["start"] and i <= last]
+    sel = [(i, w) for i, w in enumerate(words[:last + 1]) if t0 - 0.2 <= w["start"] and w["end"] >= t0]
     dump(d / "clip.json", {
         "cutAt": round(cut - t0, 3),
         "revealAt": reveal_at,
@@ -215,8 +226,9 @@ def cmd_build(a) -> None:
         "sourceEnd": round(b1, 3),
         "sourceStart": round(t0, 3),
         "sourceRevealStart": round(r0, 3),
+        "lyricsOffset": offset,
         "revealDur": round(r1 - r0, 3),
-        "words": [{"t": round(max(0.0, w["start"] - t0), 3), "e": round(w["end"] - t0, 3), "x": w["text"],
+        "words": [{"t": round(max(0.0, w["start"] - t0), 3), "e": round(w["end"] - t0, 3), "x": w["text"], "sourceIndex": i,
                    "gap": first <= i <= last} for i, w in sel],
         "answer": " ".join(w["text"] for w in words[first:last + 1]),
     })
@@ -233,6 +245,7 @@ def main() -> None:
     p = sub.add_parser("build"); p.add_argument("dir"); p.add_argument("--first", type=int, required=True)
     p.add_argument("--last", type=int, required=True); p.add_argument("--out", default="clip.mp3")
     p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.add_argument("--cut", type=float)
+    p.add_argument("--lyrics-offset", type=float)
     a = ap.parse_args()
     try:
         {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build}[a.cmd](a)

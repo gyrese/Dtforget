@@ -1,0 +1,42 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; background: #0a0c14; }
+    #fin-flood { position: absolute; inset: 0; background: #ffb627; transform-origin: 50% 0%; }
+    #fin-kicker { position: absolute; left: 120px; top: 290px; margin: 0; font-family: 'Archivo'; font-weight: 800; font-size: 40px;
+                  letter-spacing: 0.18em; color: #ffb627; text-transform: uppercase; }
+    #fin-event { position: absolute; left: 120px; top: 350px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+                 font-size: 140px; line-height: 0.9; color: #f5f1e8; text-transform: uppercase; }
+    #fin-venue { position: absolute; left: 120px; top: 640px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+                 font-size: 92px; line-height: 0.92; color: #ffb627; text-transform: uppercase; }
+    #fin-date { position: absolute; left: 120px; top: 800px; max-width: 800px; padding: 22px 34px; border-radius: 14px; background: #ffb627; color: #1b1203;
+                font-family: 'Archivo'; font-weight: 800; font-size: 46px; letter-spacing: 0.04em; text-transform: uppercase; transform-origin: 0 50%; }
+    #fin-line { position: absolute; left: 120px; top: 960px; width: 700px; margin: 0; font-family: 'Archivo'; font-weight: 700; font-size: 46px;
+                line-height: 1.2; color: #aab0c6; }
+    #fin-logo { position: absolute; left: 120px; top: 1160px; width: 420px; height: 83px; }
+  </style>
+  <div id="root" data-composition-id="fin" data-width="1080" data-height="1920"
+       data-composition-variables='[{"id":"kicker","type":"string","label":"Surtitre","default":"Nouvelle soirée"},{"id":"event","type":"string","label":"Nom de la soirée","default":"N’oubliez pas les paroles"},{"id":"venue","type":"string","label":"Lieu","default":"aux Toiles Noires"},{"id":"date","type":"string","label":"Date et heure","default":"Bientôt · date à venir"},{"id":"line","type":"string","label":"Phrase","default":"Viens chanter. Ton téléphone suffit pour jouer."}]'>
+    <p id="fin-kicker" data-var-text="kicker">Nouvelle soirée</p>
+    <h1 id="fin-event" data-var-text="event">N’oubliez pas les paroles</h1>
+    <h2 id="fin-venue" data-var-text="venue">aux Toiles Noires</h2>
+    <div id="fin-date" data-var-text="date">Bientôt · date à venir</div>
+    <p id="fin-line" data-var-text="line">Viens chanter. Ton téléphone suffit pour jouer.</p>
+    <img id="fin-logo" src="assets/img/brand-logo.svg" alt="DtForget">
+    <div id="fin-flood"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // le fond jaune se retire vers le haut : la nuit du jeu apparaît
+    tl.fromTo("#fin-flood", { scaleY: 1 }, { scaleY: 0, duration: 0.45, ease: "power2.inOut" }, 0.05);
+    tl.fromTo("#fin-kicker", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18, ease: "power4.out" }, 0.35);
+    tl.fromTo("#fin-event", { opacity: 0, y: 40, filter: "blur(10px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.42);
+    tl.fromTo("#fin-venue", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0.9);
+    tl.fromTo("#fin-date", { scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: "expo.out" }, 1.25);
+    tl.fromTo("#fin-line", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 1.7);
+    tl.fromTo("#fin-logo", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.5, ease: "power3.out" }, 2.0);
+    window.__timelines["fin"] = tl;
+  </script>
+</template>

@@ -32,6 +32,7 @@ h1{margin:0;font:900 56px/.9 var(--f-display);text-transform:uppercase}
 </style>
 </head>
 <body>
+<p class="err" id="connection-note" role="status" style="text-align:center" hidden></p>
 <section class="screen on" id="v-join">
   <div class="brand brand-intro"><img class="brand-logo" src="/assets/brand-logo.svg" alt="DtForget" width="322" height="64"><span class="brand-caption">Télécommande du présentateur</span></div>
   <h1>Prendre<br>la main</h1>
@@ -58,51 +59,136 @@ h1{margin:0;font:900 56px/.9 var(--f-display);text-transform:uppercase}
 </section>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/game-connection.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const socket = io();
+const socket = gameSocket();
 const q = new URLSearchParams(location.search);
-let joined = null;
-const saved = () => { try { return JSON.parse(sessionStorage.getItem('remote') || 'null'); } catch { return null; } };
-$('code').value = q.get('code') || saved()?.code || '';
+let code = (q.get('code') || '').trim().toUpperCase();
+try { code ||= sessionStorage.getItem('dtf-remote-code') || ''; } catch {}
+$('code').value = code;
+let current = null;
+let joining = null;
+let retry;
+let acting = false;
+const LABEL = { lobby: 'Salle d’attente', intro: 'Annonce de la chanson', playing: 'Extrait en cours', answering: 'Les joueurs répondent', reveal: 'Révélation', over: 'Partie terminée' };
 
-function join(code) {
-  socket.emit('remote:join', { code }, (res) => {
-    if (!res?.ok) { joined = null; $('join-err').textContent = res?.error || 'Connexion impossible.'; show('v-join'); return; }
-    joined = { code: res.code };
-    try { sessionStorage.setItem('remote', JSON.stringify(joined)); } catch {}
-    $('room').textContent = 'Télécommande · salon ' + res.code;
+function note(message = '') {
+  $('connection-note').hidden = !message;
+  $('connection-note').textContent = message;
+  $('join').querySelector('button').disabled = Boolean(joining) || !socket.connected;
+  if (message) $('action').disabled = true;
+}
+
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+
+function clearRoom(message) {
+  code = '';
+  current = null;
+  joining = null;
+  clearTimeout(retry);
+  try { sessionStorage.removeItem('dtf-remote-code'); } catch {}
+  $('join-err').textContent = message;
+  show('v-join');
+  note();
+}
+
+function joinRoom() {
+  clearTimeout(retry);
+  if (!socket.connected || joining) return;
+  if (!code) return note();
+  const attempt = joining = { code };
+  note('Connexion au salon…');
+  socket.timeout(GAME_ACK_MS).emit('remote:join', attempt, (error, res) => {
+    if (joining !== attempt) return;
+    joining = null;
+    if (!socket.connected) return;
+    if (error) {
+      note('Le jeu ne répond pas encore. Nouvel essai…');
+      retry = setTimeout(joinRoom, 1000);
+      return;
+    }
+    if (!res?.ok) return clearRoom(res?.error || 'Connexion impossible.');
+    code = res.code;
+    history.replaceState(null, '', '/remote.html?code=' + code);
+    try { sessionStorage.setItem('dtf-remote-code', code); } catch {}
+    $('room').textContent = 'Télécommande · salon ' + code;
     show('v-remote');
+    note();
+    render(res.state);
   });
 }
-function show(id) { document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === id)); }
-$('join').onsubmit = (e) => { e.preventDefault(); $('join-err').textContent = ''; join($('code').value.trim().toUpperCase()); };
-// après une coupure réseau, on se reconnecte tout seul au même salon
-socket.on('connect', () => { if (joined) join(joined.code); else if ($('code').value) join($('code').value.trim().toUpperCase()); });
 
-const LABEL = { lobby: 'Salle d’attente', intro: 'Annonce de la chanson', playing: 'Extrait en cours', answering: 'Les joueurs répondent', reveal: 'Révélation', over: 'Partie terminée' };
-let current = null;
-socket.on('remote:state', (s) => {
+$('join').onsubmit = (e) => {
+  e.preventDefault();
+  if (!socket.connected || joining) return;
+  code = $('code').value.trim().toUpperCase();
+  $('join-err').textContent = '';
+  joinRoom();
+};
+
+function render(s) {
+  if (!s || !code || joining) return;
   current = s;
   $('round').textContent = s.state === 'lobby' ? s.total + ' manches au programme' : 'Manche ' + s.round + ' / ' + s.total;
   $('state').textContent = LABEL[s.state] || s.state;
   $('song').hidden = s.state === 'lobby' || s.state === 'over';
   $('song').replaceChildren(s.title, Object.assign(document.createElement('small'), { textContent: s.film }));
-  $('players').textContent = s.players; $('answers').textContent = s.answers;
-  $('answer').hidden = !s.answer; $('answer').textContent = s.answer ? 'Réponse : ' + s.answer : '';
+  $('players').textContent = s.players;
+  $('answers').textContent = s.answers;
+  $('answer').hidden = !s.answer;
+  $('answer').textContent = s.answer ? 'Réponse : ' + s.answer : '';
   const btn = $('action');
-  if (s.state === 'lobby') { btn.textContent = 'Lancer la partie →'; btn.disabled = s.players < 1; $('hint').textContent = s.players < 1 ? 'En attente d’un premier joueur…' : ''; }
-  else if (s.state === 'reveal') { const last = s.round >= s.total; btn.textContent = last ? 'Classement final →' : 'Manche suivante →'; btn.disabled = false; $('hint').textContent = ''; }
-  else if (s.state === 'over') { btn.textContent = 'Partie terminée'; btn.disabled = true; $('hint').textContent = 'Pour rejouer, créez un nouveau salon sur l’écran.'; }
-  else if (s.state === 'answering') { btn.textContent = 'Arrêter le chrono ■'; btn.disabled = false; $('hint').textContent = 'Le chrono s’arrête aussi tout seul quand tout le monde a répondu.'; }
-  else { btn.textContent = 'Manche suivante →'; btn.disabled = true; $('hint').textContent = 'Le bouton s’active à la révélation.'; }
-});
+  let canAct = false;
+  let hint = '';
+  if (s.state === 'lobby') {
+    btn.textContent = 'Lancer la partie →';
+    canAct = s.connected > 0;
+    if (!canAct) hint = 'En attente d’un premier joueur.';
+  } else if (s.state === 'reveal') {
+    btn.textContent = s.round >= s.total ? 'Classement final →' : 'Manche suivante →';
+    canAct = true;
+  } else if (s.state === 'over') {
+    btn.textContent = 'Partie terminée';
+    hint = 'Pour rejouer, créez un nouveau salon sur l’écran.';
+  } else if (s.state === 'answering') {
+    btn.textContent = 'Arrêter le chrono';
+    canAct = true;
+  } else {
+    btn.textContent = 'Manche suivante →';
+    hint = 'Le bouton s’active à la révélation.';
+  }
+  btn.disabled = !canAct || !s.hostOnline || !socket.connected || acting;
+  $('hint').textContent = s.hostOnline ? hint : 'En attente de la reconnexion de l’écran hôte…';
+}
+
 $('action').onclick = () => {
-  if (!current) return;
+  if (!socket.connected || !current || acting || $('action').disabled) return;
+  acting = true;
   $('action').disabled = true;
-  socket.emit(current.state === 'lobby' ? 'remote:start' : current.state === 'answering' ? 'remote:stop' : 'remote:next');
+  const event = current.state === 'lobby' ? 'remote:start' : current.state === 'answering' ? 'remote:stop' : 'remote:next';
+  socket.timeout(GAME_ACK_MS).emit(event, { round: current.round }, (error, res) => {
+    acting = false;
+    if (!socket.connected || !code) return;
+    if (error || !res?.state) return joinRoom();
+    render(res.state);
+  });
 };
-socket.on('remote:closed', () => { joined = null; try { sessionStorage.removeItem('remote'); } catch {} $('join-err').textContent = 'Le salon a été fermé.'; show('v-join'); });
+
+socket.on('connect', joinRoom);
+socket.on('disconnect', () => {
+  current = null;
+  joining = null;
+  acting = false;
+  clearTimeout(retry);
+  note('Connexion interrompue. Reconnexion automatique…');
+});
+socket.on('connect_error', () => note('Serveur inaccessible pour le moment. Nouvel essai automatique…'));
+socket.on('remote:state', render);
+socket.on('remote:closed', () => clearRoom('Le salon a été fermé.'));
+reconnectWhenOnline(socket);
+note('Connexion au jeu…');
+socket.connect();
 </script>
 </body>
 </html>

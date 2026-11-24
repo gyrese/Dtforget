@@ -10,7 +10,8 @@
     "test": "node --test scripts/library-test.mjs",
     "test:host": "node scripts/e2e-host-design.mjs",
     "test:game": "node scripts/e2e-game.mjs",
-    "test:reconnect": "node scripts/e2e-reconnect.mjs"
+    "test:reconnect": "node scripts/e2e-reconnect.mjs",
+    "test:live-connection": "node scripts/e2e-live-connection.mjs"
   },
   "dependencies": {
     "animejs": "^4.5.0",

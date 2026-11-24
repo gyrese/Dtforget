@@ -38,9 +38,11 @@ h1{margin:0;font-family:Unbounded,sans-serif;font-weight:900;font-size:36px;line
 .wait-dot i:nth-child(3){animation-delay:.4s;background:var(--cyan)}
 @keyframes beat{from{transform:scale(1)}to{transform:scale(1.5)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.connection-note{position:fixed;z-index:5;top:env(safe-area-inset-top);left:0;right:0;margin:0;padding:9px 16px;background:#342441;color:#fff;text-align:center;font-weight:700}
 </style>
 <link rel="stylesheet" href="/play-redesign.css"></head>
 <body>
+<p class="connection-note" id="connection-note" role="status" hidden></p>
 
 <section class="screen on" id="v-join">
   <div class="brand brand-intro"><img class="brand-logo" src="/assets/brand-logo.svg" alt="DtForget" width="322" height="64"><span class="brand-caption">N'oubliez pas les paroles</span></div>
@@ -102,20 +104,138 @@ h1{margin:0;font-family:Unbounded,sans-serif;font-weight:900;font-size:36px;line
     <div class="hint">Votre score</div>
     <div class="pts" id="over-pts">0</div>
   </div>
+  <a href="/play.html?new=1" class="lead">Rejoindre la prochaine partie</a>
 </section>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/game-connection.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const socket = io();
-const codeFromLink = new URLSearchParams(location.search).get("code");
-if (/^[A-Z]{4}$/.test(codeFromLink || "")) $("code").value = codeFromLink;
-let myName = "";
-let myCode = "";
-let answered = false;
+const socket = gameSocket();
+const query = new URLSearchParams(location.search);
+const codeFromLink = (query.get("code") || "").trim().toUpperCase();
+const explicitCode = /^[A-Z]{4}$/.test(codeFromLink) ? codeFromLink : "";
+const SESSION_KEY = "dtf-session";
+let session = readStored(SESSION_KEY);
+if (query.has("new") || (explicitCode && session?.code !== explicitCode)) session = null;
+$("code").value = explicitCode || session?.code || "";
+$("name").value = session?.name || "";
+let state = null;
+let request = null;
+let retry;
+let sending = null;
+let queuedAnswer = session && readStored("dtf-submit:" + session.token);
+
+function readStored(key) {
+  try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; }
+}
+
+function store(key, value) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function draftKey(round) { return "dtf-draft:" + session.token + ":" + round; }
+
+function queueAnswer(value) {
+  queuedAnswer = value;
+  if (session) store("dtf-submit:" + session.token, value);
+}
 
 function show(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
+}
+
+function connectionNote(message) {
+  $("connection-note").textContent = message;
+  $("connection-note").hidden = !message;
+  $("join-btn").disabled = Boolean(session) || !socket.connected;
+  $("answer-btn").disabled = Boolean(message || queuedAnswer || !state?.answering || state.answered);
+  $("answer").readOnly = Boolean(queuedAnswer || state?.answered);
+}
+
+function joinError(message) {
+  $("join-err").textContent = message;
+  $("join-err").style.display = message ? "block" : "none";
+}
+
+function applyState(next) {
+  if (!session || next.code !== session.code) return;
+  const previous = state;
+  if (previous && previous.round !== next.round) {
+    store(draftKey(previous.round), null);
+    $("answer").value = "";
+  }
+  state = next;
+  if (queuedAnswer && (!next.answering || next.answered || queuedAnswer.round !== next.round)) queueAnswer(null);
+  $("wait-name").textContent = session.name;
+  $("wait-code").textContent = session.code;
+  $("ans-round").textContent = "Manche " + next.round + " / " + next.total;
+  $("ans-status").style.display = next.answered ? "block" : "none";
+  connectionNote("");
+  if (next.answering) {
+    if (!previous?.answering || previous.round !== next.round) $("answer").value = queuedAnswer?.text || readStored(draftKey(next.round)) || "";
+    if (next.answered) store(draftKey(next.round), null);
+    show("v-answer");
+  } else if (next.result) {
+    store(draftKey(next.round), null);
+    $("res-pts").textContent = "+" + next.result.points;
+    $("res-answer").textContent = "Le mot était : " + next.result.answer;
+    show("v-result");
+  } else if (next.rank) {
+    store(draftKey(next.round), null);
+    $("over-pts").textContent = next.score + " pts";
+    $("over-title").textContent = "Vous êtes " + next.rank.position + " / " + next.rank.total;
+    show("v-over");
+  } else {
+    $("wait-msg").textContent = next.state === "lobby" ? "En attente du départ." : "Écoutez l’écran principal.";
+    show("v-wait");
+  }
+}
+
+function returnToJoin(message, clear = true) {
+  if (clear) {
+    queueAnswer(null);
+    if (session && state) store(draftKey(state.round), null);
+    store(SESSION_KEY, null);
+  }
+  session = null;
+  queuedAnswer = null;
+  state = null;
+  request = null;
+  sending = null;
+  clearTimeout(retry);
+  show("v-join");
+  joinError(message);
+  connectionNote(socket.connected ? "" : "Connexion au jeu…");
+}
+
+function syncSession() {
+  clearTimeout(retry);
+  if (!socket.connected || request) return;
+  if (!session) return connectionNote("");
+  const attempt = request = { ...session };
+  connectionNote(attempt.pending ? "Entrée dans le salon…" : "Reprise de votre partie…");
+  socket.timeout(GAME_ACK_MS).emit(attempt.pending ? "player:join" : "player:resume", attempt, (error, res) => {
+    if (request !== attempt) return;
+    request = null;
+    if (!socket.connected) return;
+    if (error) {
+      connectionNote("Le jeu ne répond pas encore. Nouvel essai…");
+      retry = setTimeout(syncSession, 1000);
+      return;
+    }
+    if (!res?.ok) {
+      returnToJoin(res?.error || "Le salon a expiré. Vérifiez le code et rejoignez la partie.");
+      return;
+    }
+    session = { code: res.code, token: res.token || attempt.token, name: res.name };
+    store(SESSION_KEY, session);
+    applyState(res);
+    sendQueuedAnswer();
+  });
 }
 
 $("code").addEventListener("input", (e) => {
@@ -124,111 +244,71 @@ $("code").addEventListener("input", (e) => {
 
 $("join-form").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (session || !socket.connected) return;
   const code = $("code").value.trim().toUpperCase();
   const name = $("name").value.trim();
-  const err = $("join-err");
-  err.style.display = "none";
-  if (code.length !== 4) { err.textContent = "Le code fait 4 lettres."; err.style.display = "block"; return; }
-  if (!name) { err.textContent = "Entrez un pseudo."; err.style.display = "block"; return; }
-  $("join-btn").disabled = true;
-  socket.emit("player:join", { code, name }, (res) => {
-    $("join-btn").disabled = false;
-    if (!res.ok) { err.textContent = res.error; err.style.display = "block"; return; }
-    myName = name;
-    myCode = res.code;
-    try { localStorage.setItem("dtf-session", JSON.stringify({ code: res.code, token: res.token, name })); } catch (_) {}
-    $("wait-name").textContent = myName;
-    $("wait-code").textContent = myCode;
-    show("v-wait");
-  });
+  if (code.length !== 4) return joinError("Le code fait 4 lettres.");
+  if (!name) return joinError("Entrez un pseudo.");
+  joinError("");
+  session = { code, name, token: gameToken(), pending: true };
+  history.replaceState(null, "", "/play.html?code=" + code);
+  store(SESSION_KEY, session);
+  syncSession();
 });
 
-function savedSession() {
-  try { return JSON.parse(localStorage.getItem("dtf-session") || "null"); } catch (_) { return null; }
-}
-
-function forgetSession() {
-  try { localStorage.removeItem("dtf-session"); } catch (_) {}
-}
-
-// Reprend la partie après un rechargement ou une coupure réseau (jeton gardé dans le téléphone).
-function resumeSession() {
-  const s = savedSession();
-  if (!s || !s.token) return;
-  socket.emit("player:resume", { code: s.code, token: s.token }, (res) => {
-    if (!res || !res.ok) { forgetSession(); return; }
-    myName = res.name;
-    myCode = s.code;
-    $("wait-name").textContent = myName;
-    $("wait-code").textContent = myCode;
-    answered = res.answered;
-    if (res.answering) {
-      if (!answered) { show("v-answer"); $("answer-btn").disabled = false; $("answer").focus(); }
-      else { show("v-answer"); $("ans-status").style.display = "block"; $("answer-btn").disabled = true; }
-      $("ans-round").textContent = "Manche " + res.round + " / " + res.total;
-    } else if (res.state === "over") {
-      show("v-over");
-    } else {
-      show("v-wait");
-      const msgs = { lobby: "En attente du départ…", reveal: "Manche terminée. La suivante arrive bientôt…" };
-      $("wait-msg").textContent = msgs[res.state] || "Écoutez l'écran principal…";
-    }
-  });
-}
-
-socket.on("connect", resumeSession);
+socket.on("connect", syncSession);
+socket.on("disconnect", () => {
+  request = null;
+  sending = null;
+  connectionNote("Connexion interrompue. Reconnexion automatique…");
+});
+socket.on("connect_error", () => connectionNote("Serveur inaccessible pour le moment. Nouvel essai automatique…"));
+reconnectWhenOnline(socket);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !socket.connected) socket.connect();
+});
 
 socket.on("round:intro", ({ round, total }) => {
-  answered = false;
-  $("ans-round").textContent = "Manche " + round + " / " + total;
-  $("answer").value = "";
-  $("answer-btn").disabled = false;
-  $("ans-status").style.display = "none";
-  show("v-wait");
-  $("wait-msg").textContent = "Écoutez l'écran principal…";
+  if (state) applyState({ code: session.code, state: "intro", round, total });
 });
 
-socket.on("answer:open", () => {
-  if (answered) return;
-  show("v-answer");
+socket.on("answer:open", ({ round }) => {
+  if (!state || state.round !== round) return;
+  applyState({ ...state, state: "answering", answering: true });
   $("answer").focus();
+});
+
+$("answer").addEventListener("input", () => {
+  if (session && state?.answering && !state.answered) store(draftKey(state.round), $("answer").value);
 });
 
 $("answer-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("answer").value.trim();
-  if (!text) return;
-  $("answer-btn").disabled = true;
-  socket.emit("player:answer", { text }, (res) => {
-    if (res && res.ok) {
-      answered = true;
-      $("ans-status").style.display = "block";
-    } else {
-      $("answer-btn").disabled = false;
-    }
+  if (!text || !socket.connected || request || queuedAnswer || !state?.answering || state.answered) return;
+  queueAnswer({ text, round: state.round });
+  sendQueuedAnswer();
+});
+
+function sendQueuedAnswer() {
+  if (!queuedAnswer || !socket.connected || request || sending || !state?.answering || state.answered || state.round !== queuedAnswer.round) return;
+  const attempt = sending = queuedAnswer;
+  connectionNote("");
+  socket.timeout(GAME_ACK_MS).emit("player:answer", attempt, (error, res) => {
+    if (sending !== attempt) return;
+    sending = null;
+    if (!socket.connected || !session) return;
+    if (error || !res?.state) return syncSession();
+    queueAnswer(null);
+    applyState(res.state);
   });
-});
+}
 
-socket.on("reveal", ({ answer, ranking }) => {
-  const me = ranking.find((r) => r.name === myName);
-  $("res-pts").textContent = "+" + (me ? me.points : 0);
-  $("res-answer").textContent = "Le mot était : " + answer;
-  show("v-result");
-});
-
-socket.on("game:over", (list) => {
-  const me = list.find((p) => p.name === myName);
-  $("over-pts").textContent = (me ? me.score : 0) + " pts";
-  const rank = list.findIndex((p) => p.name === myName) + 1;
-  $("over-title").textContent = rank ? "Vous êtes " + rank + " / " + list.length : "Merci";
-  show("v-over");
-});
-
-socket.on("room:closed", () => {
-  forgetSession();
-  $("wait-msg").textContent = "Le salon a été fermé.";
-  show("v-wait");
-});
+socket.on("player:state", applyState);
+socket.on("room:closed", () => returnToJoin("Le salon a été fermé. Entrez le code de la prochaine partie."));
+socket.on("player:replaced", () => returnToJoin("Votre place est ouverte sur un autre onglet ou appareil.", false));
+connectionNote("Connexion au jeu…");
+socket.connect();
 </script>
 </body>
 </html>

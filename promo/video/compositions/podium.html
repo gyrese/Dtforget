@@ -1,0 +1,35 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #podium-shot { position: absolute; left: 0; top: 680px; width: 1080px; height: 1240px; overflow: hidden; background: #0a0c14; }
+    #podium-cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+    #podium-vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    #podium-fade { position: absolute; left: 0; top: 0; width: 1080px; height: 200px; background: linear-gradient(#0a0c14, rgba(10,12,20,0)); }
+    .t { position: absolute; left: 120px; top: 340px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+         font-size: 112px; line-height: 0.92; letter-spacing: 0.005em; color: #f5f1e8; text-transform: uppercase; }
+    .t .w { display: inline-block; }
+    .t .acc { color: #ffb627; }
+    .t .led { color: #46d9ec; }
+    #podium-dip { position: absolute; inset: 0; background: #000; opacity: 0; }
+  </style>
+  <div id="root" data-composition-id="podium" data-width="1080" data-height="1920">
+    <div id="podium-shot">
+      <div id="podium-cam">
+        <video id="podium-vid" class="clip" data-start="0" data-duration="2.5" data-media-start="3" data-track-index="0" src="assets/clips/podium.mp4" muted playsinline></video>
+      </div>
+      <div id="podium-fade"></div>
+    </div>
+    <h1 id="podium-t0" class="t" style="opacity:0"><span class="w">Qui</span> <span class="w">aura</span> <span class="w">le</span> <span class="w acc">dernier</span> <span class="w acc">mot</span> <span class="w acc">?</span></h1>
+    <div id="podium-dip"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.set("#podium-cam", {"scale":1.15,"x":-161,"y":-88}, 0);
+    tl.fromTo("#podium-t0 .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.07, ease: "power2.out" }, 0.1);
+    tl.set("#podium-t0", { opacity: 1 }, 0);
+    window.__timelines["podium"] = tl;
+  </script>
+</template>

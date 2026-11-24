@@ -1,0 +1,33 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #tel-phone { position: absolute; left: 230px; top: 680px; width: 620px; height: 1342px; border-radius: 70px;
+                 border: 12px solid #1c2133; background: #0a0c14; overflow: hidden; transform-origin: 50% 20%; }
+    #tel-vid { position: absolute; left: 0; top: 0; width: 596px; height: 1290px; object-fit: cover; }
+    .t { position: absolute; left: 120px; top: 340px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+         font-size: 112px; line-height: 0.92; color: #f5f1e8; text-transform: uppercase; }
+    .t .w { display: inline-block; }
+    .t .acc { color: #ffb627; }
+  </style>
+  <div id="root" data-composition-id="tel" data-width="1080" data-height="1920">
+    <div id="tel-phone">
+      <video id="tel-vid" class="clip" data-start="0" data-duration="4.3" data-media-start="2.2" data-track-index="0" src="assets/clips/phone.mp4" muted playsinline></video>
+    </div>
+    <h1 id="tel-t0" class="t" style="opacity:0"><span class="w">Tape</span> <span class="w">les</span> <span class="w">paroles</span> <span class="w acc">manquantes.</span></h1>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#tel-phone", { scale: 1.1, y: 80, filter: "blur(10px)" }, { scale: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0);
+    tl.set("#tel-t0", { opacity: 1 }, 0);
+    tl.fromTo("#tel-t0 .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.07, ease: "power2.out" }, 0.15);
+    // punch-in sur le +2 quand il arrive
+    tl.to("#tel-phone", { scale: 1.18, duration: 0.45, ease: "power2.inOut" }, 3.55);
+    tl.to("#tel-t0", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 4.0);
+    // sortie : fouetté vers le haut
+    tl.to("#tel-phone", { y: -420, filter: "blur(14px)", duration: 0.22, ease: "power3.in" }, 4.08);
+    window.__timelines["tel"] = tl;
+  </script>
+</template>

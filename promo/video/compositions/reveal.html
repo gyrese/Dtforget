@@ -1,0 +1,43 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #reveal-shot { position: absolute; left: 0; top: 680px; width: 1080px; height: 1240px; overflow: hidden; background: #0a0c14; }
+    #reveal-cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+    #reveal-vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    #reveal-fade { position: absolute; left: 0; top: 0; width: 1080px; height: 200px; background: linear-gradient(#0a0c14, rgba(10,12,20,0)); }
+    .t { position: absolute; left: 120px; top: 340px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+         font-size: 112px; line-height: 0.92; letter-spacing: 0.005em; color: #f5f1e8; text-transform: uppercase; }
+    .t .w { display: inline-block; }
+    .t .acc { color: #ffb627; }
+    .t .led { color: #46d9ec; }
+    #reveal-dip { position: absolute; inset: 0; background: #000; opacity: 0; }
+  </style>
+  <div id="root" data-composition-id="reveal" data-width="1080" data-height="1920">
+    <div id="reveal-shot">
+      <div id="reveal-cam">
+        <video id="reveal-vid" class="clip" data-start="0" data-duration="4.5" data-media-start="1" data-track-index="0" src="assets/clips/reveal.mp4" muted playsinline></video>
+      </div>
+      <div id="reveal-fade"></div>
+    </div>
+    <h1 id="reveal-t0" class="t" style="opacity:0"><span class="w">Le</span> <span class="w">mot</span> <span class="w">tombe…</span></h1>
+    <h1 id="reveal-t1" class="t" style="opacity:0"><span class="w">Les</span> <span class="w acc">points</span> <span class="w">aussi.</span></h1>
+    <div id="reveal-dip"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#reveal-cam", {"scale":1.25,"x":-122,"y":203}, { ...{"scale":1.25,"x":-122,"y":-217}, duration: 0.3, ease: "expo.out" }, 0);
+    tl.fromTo("#reveal-shot", { filter: "blur(14px)" }, { filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, 0);
+    tl.to("#reveal-cam", { ...{"scale":1.38,"x":-1409,"y":-271}, duration: 0.6, ease: "power2.inOut" }, 2.3);
+    tl.to("#reveal-dip", { opacity: 0.45, duration: 0.1, ease: "none" }, 4.4);
+    tl.fromTo("#reveal-t0 .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.07, ease: "power2.out" }, 0.15);
+    tl.set("#reveal-t0", { opacity: 1 }, 0);
+    tl.to("#reveal-t0", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 2.08);
+    tl.fromTo("#reveal-t1", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18, ease: "power4.out" }, 2.3);
+    tl.set("#reveal-t1 .w", { opacity: 1 }, 0);
+    tl.to("#reveal-t1", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 4.28);
+    window.__timelines["reveal"] = tl;
+  </script>
+</template>

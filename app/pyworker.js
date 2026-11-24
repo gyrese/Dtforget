@@ -38,6 +38,7 @@ export function createPyWorker(spikeDir, { binDir } = {}) {
       if (Number.isFinite(job.start)) args.push('--start', String(job.start));
       if (Number.isFinite(job.end)) args.push('--end', String(job.end));
       if (Number.isFinite(job.cut)) args.push('--cut', String(job.cut));
+      if (Number.isFinite(job.lyricsOffset)) args.push('--lyrics-offset', String(job.lyricsOffset));
     }
     else return Promise.reject(new Error('Traitement inconnu.'));
 

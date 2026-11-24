@@ -1,0 +1,43 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #trou-shot { position: absolute; left: 0; top: 680px; width: 1080px; height: 1240px; overflow: hidden; background: #0a0c14; }
+    #trou-cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+    #trou-vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    #trou-fade { position: absolute; left: 0; top: 0; width: 1080px; height: 200px; background: linear-gradient(#0a0c14, rgba(10,12,20,0)); }
+    .t { position: absolute; left: 120px; top: 340px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+         font-size: 112px; line-height: 0.92; letter-spacing: 0.005em; color: #f5f1e8; text-transform: uppercase; }
+    .t .w { display: inline-block; }
+    .t .acc { color: #ffb627; }
+    .t .led { color: #46d9ec; }
+    #trou-dip { position: absolute; inset: 0; background: #000; opacity: 0; }
+  </style>
+  <div id="root" data-composition-id="trou" data-width="1080" data-height="1920">
+    <div id="trou-shot">
+      <div id="trou-cam">
+        <video id="trou-vid" class="clip" data-start="0" data-duration="6" data-media-start="2" data-track-index="0" src="assets/clips/lyrics.mp4" muted playsinline></video>
+      </div>
+      <div id="trou-fade"></div>
+    </div>
+    <h1 id="trou-t0" class="t" style="opacity:0"><span class="w">La</span> <span class="w">musique</span> <span class="w acc">s’arrête.</span></h1>
+    <h1 id="trou-t1" class="t" style="opacity:0"><span class="w">À</span> <span class="w">toi</span> <span class="w">de</span> <span class="w">chanter</span> <span class="w acc">la</span> <span class="w acc">suite.</span></h1>
+    <div id="trou-dip"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.set("#trou-cam", {"scale":0.8,"x":-20,"y":94}, 0);
+    tl.to("#trou-cam", { ...{"scale":0.94,"x":-141,"y":-282}, duration: 0.6, ease: "power2.inOut" }, 2.9);
+    tl.to("#trou-cam", { ...{"scale":3.008,"x":-1638,"y":-1936}, duration: 0.4, ease: "power3.in" }, 5.6);
+    tl.to("#trou-shot", { filter: "blur(12px)", duration: 0.25, ease: "power2.in" }, 5.75);
+    tl.set("#trou-t0 .w", { opacity: 1, filter: "blur(0px)" }, 0);
+    tl.set("#trou-t0", { opacity: 1 }, 0);
+    tl.to("#trou-t0", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 2.78);
+    tl.fromTo("#trou-t1 .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.07, ease: "power2.out" }, 3);
+    tl.set("#trou-t1", { opacity: 1 }, 0);
+    tl.to("#trou-t1", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 5.78);
+    window.__timelines["trou"] = tl;
+  </script>
+</template>

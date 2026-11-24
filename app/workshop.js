@@ -32,7 +32,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     saveMeta(id, { status: 'working', error: null });
     runner.run(id, dirOf(id), job, (step) => { const j = jobs.get(id); if (j) j.step = step; })
       .then((done) => saveMeta(id, after(done)))
-      .catch((error) => { try { saveMeta(id, { status: 'error', error: error.message || 'Le traitement a échoué.' }); } catch (e) { console.error('[atelier]', e); } })
+      .catch((error) => { try { saveMeta(id, { status: job.cmd === 'build' ? 'ready' : 'error', error: error.message || 'Le traitement a échoué.' }); } catch (e) { console.error('[atelier]', e); } })
       .finally(() => { busy = false; jobs.delete(id); });
   }
 
@@ -177,14 +177,23 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     // début, fin de l'extrait et coupure de la voix déplacés à la main sur l'aperçu (secondes dans la chanson)
     const job = { cmd: 'build', first, last };
     for (const k of ['start', 'end', 'cut']) if (Number.isFinite(req.body?.[k]) && req.body[k] >= 0 && req.body[k] < 3600) job[k] = req.body[k];
+    if (req.body?.lyricsOffset !== undefined) {
+      if (!Number.isFinite(req.body.lyricsOffset) || Math.abs(req.body.lyricsOffset) > 30) return res.status(400).json({ error: 'Le décalage des paroles doit être compris entre −30 et +30 secondes.' });
+      job.lyricsOffset = req.body.lyricsOffset;
+    }
     run(id, job, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
+      if (job.lyricsOffset && built.lyricsOffset !== job.lyricsOffset) throw new Error('Mettez à jour le PC de traitement pour recaler les paroles.');
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
-      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, bedEnd: built.bedEnd, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: built.words, answer: built.answer, updatedAt: Date.now() };
+      const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, bedEnd: built.bedEnd, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, lyricsOffset: built.lyricsOffset ?? 0, words: built.words, answer: built.answer, updatedAt: Date.now() };
       // paroles corrigées ou découpées à la main dans la bibliothèque : gardées si le passage reste le même
-      if (replace?.id === clipId && replace.words?.length === clip.words.length && replace.words.some((w) => w.br)) {
-        clip.words = clip.words.map((w, i) => ({ ...w, x: replace.words[i].x, ...(replace.words[i].br ? { br: true } : {}) }));
+      if (replace?.id === clipId && replace.words?.some((w) => w.br)) {
+        const original = new Map(replace.words.map((w, i) => [w.sourceIndex ?? last - (replace.words.length - 1 - i), w]));
+        clip.words = clip.words.map((w, i) => {
+          const edited = original.get(w.sourceIndex ?? last - (clip.words.length - 1 - i));
+          return edited ? { ...w, x: edited.x, ...(edited.br ? { br: true } : {}) } : w;
+        });
         clip.answer = replace.answer;
       }
       // l'ancien extrait disparaît d'ici ; à l'envoi, il est aussi retiré du serveur en ligne
@@ -207,7 +216,7 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
         library.setSongLists(songKey(clip), [...new Set([...library.listsOf(songKey(clip)), ...kept])]);
       }
       if (listId) library.get().lists.some((l) => l.id === listId) ? library.addSong(listId, songKey(clip)) : library.importList(remoteList, songKey(clip));
-      const summary = { id: clipId, audio: clip.audio, cutAt: clip.cutAt, bedEnd: built.bedEnd, revealAt: built.revealAt, first, last, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, words: last - first + 1, listId: listId || null };
+      const summary = { id: clipId, audio: clip.audio, answer: clip.answer, cutAt: clip.cutAt, bedEnd: built.bedEnd, revealAt: built.revealAt, first, last, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, lyricsOffset: clip.lyricsOffset, words: last - first + 1, listId: listId || m.clips?.find((c) => c.id === clipId)?.listId || null };
       return { status: 'ready', title, artist: film, background: choice, clips: [...(m.clips || []).filter((c) => c.id !== clipId && c.id !== clip.replaces), summary] };
     });
     res.json({ ok: true });

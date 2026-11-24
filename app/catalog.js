@@ -42,7 +42,7 @@ export function createCatalog({ content, contentFile, library, clipsDir, worksho
   const summary = (c) => ({
     id: c.id, title: c.title, film: c.film, answer: c.answer, audio: c.audio, cutAt: c.cutAt,
     background: c.background || null, updatedAt: c.updatedAt || null,
-    sourceStart: c.sourceStart ?? null, sourceEnd: c.sourceEnd ?? null,
+    sourceStart: c.sourceStart ?? null, sourceEnd: c.sourceEnd ?? null, lyricsOffset: c.lyricsOffset ?? 0,
     words: (c.words || []).map((w) => ({ x: w.x, t: w.t, e: w.e, gap: w.gap, ...(w.br ? { br: true } : {}) })),
     // fin de la musique de jeu : le fichier continue ensuite avec la reprise chantée de la révélation
     bedEnd: bedEnd(c), revealAt: c.revealAt ?? null, lists: library.listsOf(songKey(c)),

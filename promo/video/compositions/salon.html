@@ -1,0 +1,37 @@
+<template>
+  <style>
+    @font-face { font-family: 'Big Shoulders Display'; font-weight: 900; src: url('assets/fonts/big-shoulders-display-latin-900-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 700; src: url('assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Archivo'; font-weight: 800; src: url('assets/fonts/archivo-latin-800-normal.woff2') format('woff2'); }
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #salon-shot { position: absolute; left: 0; top: 680px; width: 1080px; height: 1240px; overflow: hidden; background: #0a0c14; }
+    #salon-cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+    #salon-vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+    #salon-fade { position: absolute; left: 0; top: 0; width: 1080px; height: 200px; background: linear-gradient(#0a0c14, rgba(10,12,20,0)); }
+    .t { position: absolute; left: 120px; top: 340px; width: 800px; margin: 0; font-family: 'Big Shoulders Display'; font-weight: 900;
+         font-size: 112px; line-height: 0.92; letter-spacing: 0.005em; color: #f5f1e8; text-transform: uppercase; }
+    .t .w { display: inline-block; }
+    .t .acc { color: #ffb627; }
+    .t .led { color: #46d9ec; }
+    #salon-dip { position: absolute; inset: 0; background: #000; opacity: 0; }
+  </style>
+  <div id="root" data-composition-id="salon" data-width="1080" data-height="1920">
+    <div id="salon-shot">
+      <div id="salon-cam">
+        <video id="salon-vid" class="clip" data-start="0" data-duration="3" data-media-start="6" data-track-index="0" src="assets/clips/lobby.mp4" muted playsinline></video>
+      </div>
+      <div id="salon-fade"></div>
+    </div>
+    <h1 id="salon-t0" class="t" style="opacity:0"><span class="w acc">Scanne</span> <span class="w">et</span> <span class="w">rejoins</span> <span class="w">la</span> <span class="w">partie.</span></h1>
+    <div id="salon-dip"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#salon-cam", {"scale":1.4560000000000002,"x":-1307,"y":-373}, { ...{"scale":1.3,"x":-1247,"y":-323}, duration: 0.45, ease: "expo.out" }, 0);
+    tl.to("#salon-shot", { opacity: 0, filter: "blur(8px)", duration: 0.18, ease: "power2.in" }, 2.82);
+    tl.fromTo("#salon-t0 .w", { opacity: 1, color: "#3a4160" }, { color: (k, el) => el.classList.contains("acc") ? "#ffb627" : "#f5f1e8", duration: 0.1, stagger: 0.09, ease: "none" }, 0.1);
+    tl.set("#salon-t0", { opacity: 1 }, 0);
+    tl.to("#salon-t0", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 2.78);
+    window.__timelines["salon"] = tl;
+  </script>
+</template>

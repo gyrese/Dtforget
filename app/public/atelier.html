@@ -67,21 +67,78 @@ textarea{min-height:150px;resize:vertical}
 .dock select{width:auto;min-width:150px;;}
 .dock label{flex-direction:row;align-items:center;gap:8px;font-weight:400}
 audio{width:100%;margin-top:18px}
-.trim{margin-top:22px}
-.trim-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
-.trim-head b{color:var(--ink);font:700 13px var(--f-mono)}
-.trim-bar{position:relative;height:64px;margin:10px 0 6px;background:var(--deck-2);border:1px solid var(--rule-strong);border-radius:var(--r-md);touch-action:none;user-select:none}
-.trim-keep{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--spot) 22%,transparent)}
-.trim-gap{position:absolute;top:18px;bottom:18px;background:var(--led);border-radius:2px}
-.trim-cut{position:absolute;top:6px;bottom:6px;width:0;border-left:2px dashed var(--led)}
-.trim-h{position:absolute;top:-6px;bottom:-6px;width:28px;margin-left:-14px;border:0;background:transparent;cursor:ew-resize;padding:0}
-.trim-h::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:4px;border-radius:2px;background:var(--spot)}
-.trim-h::after{content:'';position:absolute;left:5px;top:50%;width:18px;height:26px;margin-top:-13px;border-radius:4px;background:var(--spot)}
-.trim-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.trim-scale{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted)}
+.done-head{display:flex;gap:20px 28px;align-items:flex-start;flex-wrap:wrap}
+.done-head .grow{flex:1;min-width:240px}.done-head .done-answer{margin:0;flex:0 1 360px}
+.transport{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--rule)}
+.now{flex:1;min-width:200px;display:flex;flex-direction:column}.now b{font-size:15px}.now .note{min-height:0}
+.tc{font:700 22px var(--f-mono);color:var(--spot);min-width:96px;text-align:right}
+.montage{margin-top:16px;background:var(--deck);border:1px solid var(--rule);border-radius:var(--r-lg);padding:20px 22px 18px}
+.mt-top{display:flex;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;align-items:baseline;margin-bottom:12px}
+.mt-top h3{font:900 24px/1 var(--f-display);text-transform:uppercase;margin:0}
+.mt-top .note{max-width:70ch}
+.mt-over{position:relative;height:38px;background:var(--deck-2);border:1px solid var(--rule);border-radius:var(--r-sm);touch-action:none}
+.mt-over canvas{position:absolute;inset:0;width:100%;height:100%}
+.mt-over-win{position:absolute;top:-2px;bottom:-2px;border:2px solid var(--spot);background:color-mix(in srgb,var(--spot) 12%,transparent);border-radius:3px;pointer-events:none}
+.mt-over-gap{position:absolute;top:10px;bottom:10px;min-width:2px;background:var(--led);pointer-events:none}
+.mt-over-h{position:absolute;top:-5px;bottom:-5px;width:22px;margin-left:-11px;border:0;background:transparent;cursor:ew-resize;padding:0;z-index:2}
+.mt-over-h::after{content:'';position:absolute;left:7px;top:50%;width:8px;height:22px;margin-top:-11px;border-radius:3px;background:var(--spot)}
+.mt-over-head{position:absolute;top:0;bottom:0;width:2px;background:var(--chalk);pointer-events:none}
+.mt-scale{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted);margin:4px 0 12px}
+.mt-tl{display:grid;grid-template-columns:96px 1fr;border:1px solid var(--rule-strong);border-radius:var(--r-md);overflow:hidden;background:var(--night)}
+.mt-labels,.mt-area{display:grid;grid-template-rows:26px 62px 36px 66px}
+.mt-labels{border-right:1px solid var(--rule);background:var(--deck)}
+.mt-labels>span{display:flex;flex-direction:column;justify-content:center;padding:0 10px;font-size:12px;font-weight:800;border-top:1px solid var(--rule)}
+.mt-labels>span:first-child{border-top:0}
+.mt-labels small{font:700 11px var(--f-mono);color:var(--led)}
+.mt-area{position:relative;touch-action:none;user-select:none;overflow:hidden}
+.mt-ruler{position:relative;background:var(--deck-2);overflow:hidden}
+.mt-tick{position:absolute;top:0;bottom:0;border-left:1px solid var(--rule-strong);font:10px var(--f-mono);color:var(--muted);padding:7px 0 0 4px;white-space:nowrap}
+.mt-track{position:relative;border-top:1px solid var(--rule)}
+.mt-lyr{cursor:grab;outline-offset:-3px}.mt-lyr.drag{cursor:grabbing}
+.mt-word{position:absolute;top:7px;height:24px;display:flex;align-items:center;padding:0 4px;font-size:14px;font-weight:700;border-left:2px solid var(--rule-strong);overflow:hidden;white-space:nowrap;color:var(--chalk);pointer-events:none}
+.mt-word.r2{top:33px}
+.mt-word.g{background:color-mix(in srgb,var(--led) 24%,transparent);border-left-color:var(--led);color:var(--led);border-radius:0 3px 3px 0}
+.mt-word.on{background:var(--spot);border-left-color:var(--spot);color:var(--on-spot)}
+.mt-sung,.mt-mute{position:absolute;top:8px;bottom:8px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;overflow:hidden;white-space:nowrap;pointer-events:none}
+.mt-sung{background:color-mix(in srgb,var(--spot) 50%,transparent);border-radius:3px 0 0 3px;color:var(--chalk)}
+.mt-mute{background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--live) 40%,transparent) 6px 8px);border:1px dashed var(--live);border-left:0;border-radius:0 3px 3px 0;color:#ffc2c7}
+.mt-music canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mt-out{position:absolute;top:26px;bottom:0;background:rgb(5 7 12 / .66);pointer-events:none}
+.mt-gapcol{position:absolute;top:26px;bottom:0;border-left:1px solid var(--led);border-right:1px solid var(--led);background:color-mix(in srgb,var(--led) 8%,transparent);pointer-events:none}
+.mt-gapcol::after{content:'à deviner';position:absolute;bottom:4px;left:4px;font:700 10px var(--f-mono);color:var(--led);white-space:nowrap}
+.mt-gapcol.sync-now{background:color-mix(in srgb,var(--led) 20%,transparent)}
+.mt-h,.mt-cut{position:absolute;top:0;bottom:0;width:26px;margin-left:-13px;border:0;padding:0;background:transparent;cursor:ew-resize;z-index:2}
+.mt-h::before,.mt-cut::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--spot)}
+.mt-h span,.mt-cut span{position:absolute;left:50%;transform:translateX(-50%);font:800 10px var(--f-text);letter-spacing:.5px;text-transform:uppercase;padding:3px 6px;border-radius:3px;white-space:nowrap;background:var(--spot);color:var(--on-spot)}
+.mt-h span{top:4px}
+.mt-h.edge::before{background:repeating-linear-gradient(var(--spot) 0 5px,transparent 5px 9px)}
+.mt-h.edge.l span{left:13px;transform:none}.mt-h.edge.r span{left:auto;right:13px;transform:none}
+.mt-view{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+.mt-view .chips .chip{min-height:34px;padding:4px 12px}
+.mt-cut{top:26px}.mt-cut::before{background:var(--live);width:2px}
+.mt-cut span{top:58px;background:var(--live);color:var(--night);font-size:12px;padding:3px 5px}
+.mt-h:focus-visible,.mt-cut:focus-visible{outline:2px solid var(--led);outline-offset:-2px}
+.mt-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--chalk);box-shadow:0 0 8px var(--chalk);pointer-events:none;z-index:3}
+.mt-insp{display:grid;grid-template-columns:repeat(5,1fr);margin-top:14px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--deck-2)}
+.mt-cell{padding:10px 12px;border-left:1px solid var(--rule);min-width:0}.mt-cell:first-child{border-left:0}
+.mt-cell small{display:block;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.mt-cell small i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.mt-cell b{display:block;font:700 18px var(--f-mono);margin:2px 0 6px;white-space:nowrap}
+.mt-cell em{font:normal 700 11px var(--f-mono);color:var(--muted);margin-left:4px}
+.mt-cell .quiet{min-height:32px;min-width:38px;padding:2px 8px;font-size:13px}
+.mt-cell div{display:flex;gap:4px;flex-wrap:wrap}
+@media (max-width:760px){.mt-insp{grid-template-columns:1fr 1fr}.mt-cell:nth-child(odd){border-left:0}.mt-cell{border-top:1px solid var(--rule)}.mt-cell:nth-child(-n+2){border-top:0}.mt-tl{grid-template-columns:70px 1fr}.mt-labels small,.mt-scale-mid{display:none}}
 .cut-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
 .cut-row b{color:var(--ink);font:700 13px var(--f-mono);min-width:64px;text-align:center}
 .cut-row .quiet{padding:6px 10px}
+.sync-panel{display:grid;gap:10px;padding:14px 16px;margin:0 0 18px;border:1px solid var(--rule-strong);border-radius:var(--r-md);background:var(--deck-2)}
+.sync-panel .sync-title{font-size:16px;font-weight:800;color:var(--ink)}
+.sync-panel .sync-value{font:700 16px var(--f-mono);color:var(--led)}
+.sync-panel input[type="range"]{width:100%;height:28px;padding:0;margin:0;accent-color:var(--led);cursor:ew-resize}
+.sync-panel .sync-scale{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+.sync-panel .sync-actions{gap:8px;margin:0}
+.sync-panel .sync-actions .quiet{padding:8px 10px}
+.sync-panel .sync-now{color:var(--led);font-weight:800}
 @media (max-width:640px){.fields{grid-template-columns:1fr}.steps li span{display:none}.lyrics{font-size:18px;padding:16px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 #background-dialog{width:min(440px,calc(100% - 32px));padding:24px;color:var(--chalk);background:var(--deck);border:1px solid var(--rule-strong);border-radius:8px}
@@ -162,22 +219,45 @@ audio{width:100%;margin-top:18px}
   </section>
 
   <section id="v-done" hidden>
-    <div class="card"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p><p class="done-answer" id="done-answer" hidden>Paroles à deviner<b id="done-answer-text"></b></p>
-      <audio id="done-audio" controls preload="auto"></audio>
-      <div class="row" id="done-parts" hidden style="margin-top:10px"><button class="quiet" id="hear-round" type="button">▶ La manche (sans voix après la coupure)</button><button class="quiet" id="hear-reveal" type="button">▶ La révélation (reprise chantée)</button></div>
-      <div class="trim" id="trim" hidden>
-        <div class="trim-head"><span>Début et fin de l’extrait — faites glisser les deux poignées sur la chanson entière</span><span>Début <b id="trim-start"></b> · fin <b id="trim-end"></b> · durée <b id="trim-len"></b></span></div>
-        <div class="trim-bar" id="trim-bar"><div class="trim-keep" id="trim-keep"></div><div class="trim-gap" id="trim-gap" title="Passage à deviner"></div><div class="trim-cut" id="trim-cut" title="Coupure"></div>
-          <button type="button" class="trim-h" id="trim-h0" aria-label="Début de l’extrait (flèches : ± 0,5 s)"></button><button type="button" class="trim-h" id="trim-h1" aria-label="Fin de l’extrait (flèches : ± 0,5 s)"></button></div>
-        <div class="trim-scale"><span>0:00</span><span id="trim-total"></span></div>
-        <div class="cut-row" role="group" aria-label="Fin de la voix avant le trou"><span>Fin de la voix avant le trou (pointillés)</span>
-          <button class="quiet" type="button" data-cut="-0.5">− 0,5 s</button><button class="quiet" type="button" data-cut="-0.1">− 0,1 s</button>
-          <b id="cut-shift" title="Décalage par rapport à l’extrait actuel">0,0 s</b>
-          <button class="quiet" type="button" data-cut="0.1">+ 0,1 s</button><button class="quiet" type="button" data-cut="0.5">+ 0,5 s</button>
-          <button class="quiet" type="button" id="cut-hear">▶ Écouter la fin de la voix</button></div>
-        <div class="row" style="margin-top:12px"><button class="quiet" id="trim-reset" type="button">Réglage automatique</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Refaire l’extrait</button></div>
+    <div class="card">
+      <div class="done-head"><div class="grow"><p class="eyebrow">Extrait ajouté</p><h2 id="done-title"></h2><p class="lead" id="done-lead" style="margin:0"></p></div>
+        <p class="done-answer" id="done-answer" hidden>Paroles à deviner<b id="done-answer-text"></b></p></div>
+      <audio id="done-audio" preload="auto" hidden></audio>
+      <div class="transport"><button class="btn" id="hear-round" type="button">▶ Écouter l’extrait</button>
+        <span class="now"><b id="tc-part">Comme en jeu</b><small class="note" id="tc-hint">La manche (la voix s’arrête aux ciseaux), puis la révélation chantée.</small></span><output class="tc" id="tc" title="Position dans la chanson">0:00,0</output></div>
+    </div>
+
+    <div class="montage" id="trim" hidden>
+      <div class="mt-top"><h3>Table de montage</h3><span class="note">Glissez les poignées <b>Début</b> et <b>Fin</b>, les ciseaux de la coupure ou la piste des paroles. Chaque réglage se fait entendre aussitôt.</span></div>
+      <div class="mt-over" id="mt-over" title="La chanson entière"><canvas id="mt-over-wave"></canvas><div class="mt-over-win" id="mt-over-win"></div><div class="mt-over-gap" id="mt-over-gap"></div><div class="mt-over-head" id="mt-over-head" hidden></div>
+        <button type="button" class="mt-over-h" id="trim-h0o" tabindex="-1" aria-hidden="true"></button><button type="button" class="mt-over-h" id="trim-h1o" tabindex="-1" aria-hidden="true"></button></div>
+      <div class="mt-scale"><span>0:00</span><span class="mt-scale-mid">Chanson entière · l’encadré jaune est l’extrait</span><span id="trim-total"></span></div>
+      <div class="mt-view"><span class="eyebrow">Gros plan</span><div class="chips" role="group" aria-label="Gros plan"><button class="chip" type="button" data-view="gap" aria-pressed="true">Autour du passage</button><button class="chip" type="button" data-view="all" aria-pressed="false">Extrait entier</button></div></div>
+      <div class="mt-tl">
+        <div class="mt-labels" aria-hidden="true"><span></span><span>Paroles<small id="mt-off-label"></small></span><span>Voix</span><span>Musique</span></div>
+        <div class="mt-area" id="mt-area">
+          <div class="mt-ruler" id="mt-ruler"></div>
+          <div class="mt-track mt-lyr" id="mt-lyr" tabindex="0" data-k="offset" role="slider" aria-label="Recaler les paroles (flèches : ± 0,1 s, Maj : ± 1 s)"></div>
+          <div class="mt-track"><div class="mt-sung" id="mt-sung">voix</div><div class="mt-mute" id="mt-mute">voix retirée</div></div>
+          <div class="mt-track mt-music"><canvas id="mt-wave"></canvas></div>
+          <div class="mt-out" id="mt-out-l"></div><div class="mt-out" id="mt-out-r"></div><div class="mt-gapcol" id="mt-gapcol"></div>
+          <button type="button" class="mt-h" id="trim-h0" data-k="start" aria-label="Début de l’extrait (flèches : ± 0,1 s, Maj : ± 1 s)"><span>Début</span></button>
+          <button type="button" class="mt-h" id="trim-h1" data-k="end" aria-label="Fin de l’extrait (flèches : ± 0,1 s, Maj : ± 1 s)"><span>Fin</span></button>
+          <button type="button" class="mt-cut" id="trim-cut" data-k="cut" aria-label="Coupure de la voix (flèches : ± 0,1 s)"><span>✂</span></button>
+          <div class="mt-head" id="mt-head" hidden></div>
+        </div>
       </div>
-      <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p></div>
+      <div class="mt-insp" role="group" aria-label="Réglages précis (Maj + clic : pas d’une seconde)">
+        <div class="mt-cell"><small><i style="background:var(--spot)"></i>Début</small><b id="trim-start"></b><div><button class="quiet" type="button" data-k="start" data-d="-0.1" aria-label="Début plus tôt">−</button><button class="quiet" type="button" data-k="start" data-d="0.1" aria-label="Début plus tard">+</button></div></div>
+        <div class="mt-cell"><small><i style="background:var(--live)"></i>Coupure</small><b id="trim-cutv"></b><div><button class="quiet" type="button" data-k="cut" data-d="-0.1" aria-label="Coupure plus tôt">−</button><button class="quiet" type="button" data-k="cut" data-d="0.1" aria-label="Coupure plus tard">+</button><em id="cut-shift"></em></div></div>
+        <div class="mt-cell"><small><i style="background:var(--spot)"></i>Fin</small><b id="trim-end"></b><div><button class="quiet" type="button" data-k="end" data-d="-0.1" aria-label="Fin plus tôt">−</button><button class="quiet" type="button" data-k="end" data-d="0.1" aria-label="Fin plus tard">+</button></div></div>
+        <div class="mt-cell"><small><i style="background:var(--led)"></i>Paroles</small><b id="mt-off"></b><div><button class="quiet" type="button" data-k="offset" data-d="-0.1" aria-label="Paroles plus tôt">−</button><button class="quiet" type="button" data-k="offset" data-d="0.1" aria-label="Paroles plus tard">+</button><button class="quiet" type="button" id="mt-off-zero" title="Remettre le recalage à zéro">0</button></div></div>
+        <div class="mt-cell"><small>Durée</small><b id="trim-len"></b></div>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="quiet" id="trim-reset" type="button">Bornes et coupure automatiques</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Appliquer à l’extrait</button></div>
+    </div>
+
+    <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p>
   </section>
 
   <section id="v-library" hidden>
@@ -196,6 +276,7 @@ audio{width:100%;margin-top:18px}
   <form method="dialog" id="edit-form">
     <h2>Modifier la chanson</h2>
     <p class="note" id="edit-answer" style="margin:0 0 16px"></p>
+    <div id="edit-sync" hidden></div>
     <div class="fields" style="margin-top:0"><label>Titre de la chanson<input type="text" id="edit-title" maxlength="80" required autocomplete="off"></label><label>Artiste ou film<input type="text" id="edit-film" maxlength="80" required autocomplete="off"></label></div>
     <label>Paroles à l’écran
       <textarea id="edit-lyrics" spellcheck="false" rows="8" style="font-size:14px;line-height:1.5"></textarea>
@@ -222,6 +303,20 @@ audio{width:100%;margin-top:18px}
     <div class="row" style="margin-top:8px"><a class="quiet" id="edit-passage" href="#">Changer le passage ou les paroles</a><span class="grow"></span><button class="quiet" value="cancel" formnovalidate>Annuler</button><button class="btn" id="edit-save" value="save">Enregistrer</button></div>
   </form>
 </dialog>
+
+<template id="sync-template">
+  <div class="sync-panel" role="group" aria-label="Recaler les paroles">
+    <div class="row sync-actions"><span class="sync-title grow">Recaler les paroles</span><output class="sync-value" aria-live="off"></output></div>
+    <div class="sync-scale"><span>Plus tôt</span><input type="range" step="0.1" aria-label="Décalage des paroles"><span>Plus tard</span></div>
+    <div class="row sync-actions">
+      <button class="quiet" type="button" data-nudge="-1">−1 s</button><button class="quiet" type="button" data-nudge="-0.1">−0,1 s</button>
+      <button class="quiet" type="button" data-nudge="0.1">+0,1 s</button><button class="quiet" type="button" data-nudge="1">+1 s</button>
+      <button class="quiet" type="button" data-sync-reset>Remettre à zéro</button>
+      <span class="grow"></span><button class="quiet" type="button" data-sync-hear>▶ Écouter le passage</button>
+    </div>
+    <small class="note" data-sync-time></small>
+  </div>
+</template>
 
 <div class="dock" id="dock" hidden><div class="dock-in">
   <div class="grow"><b id="dock-count">Aucun passage choisi</b><small id="dock-hint">Cliquez sur le premier mot à deviner.</small></div>
@@ -292,7 +387,7 @@ function view(name, step) {
   $('page-title').textContent = lib ? 'Bibliothèque.' : replaceId ? 'Changer le passage.' : 'Ajouter une chanson.';
   $(lib ? 'tab-lib' : 'tab-add').setAttribute('aria-current', 'page'); $(lib ? 'tab-add' : 'tab-lib').removeAttribute('aria-current');
   [...$('steps').children].forEach((li, i) => { li.classList.toggle('done', i < step); i === step ? li.setAttribute('aria-current', 'step') : li.removeAttribute('aria-current'); });
-  if (name !== 'lyrics') player.pause();
+  if (name !== 'lyrics') stopSourcePreview();
   window.scrollTo(0, 0);
 }
 
@@ -356,19 +451,20 @@ $('media-form').onsubmit = async (e) => {
 
 /* 2. Analyse */
 function showWork(step) {
+  const building = kind === 'build' || kind === 'trim';
   const all = STEPS.filter(([k]) => (remote || (k !== 'fetch' && k !== 'return')) && (fromYoutube ? k !== 'upload' && k !== 'fetch' : k !== 'download'));
   // « download:42.0% » : avancement du téléchargement YouTube
   const pct = /^download:\s*([\d.]+%)/.exec(step || '')?.[1];
   if (pct) step = 'download';
-  const steps = kind === 'build' ? [['build', 'Fabrication de l’extrait']] : kind === 'align' ? all.filter(([k]) => k === 'lyrics_search' || k === 'align') : all;
+  const steps = building ? [['build', 'Fabrication de l’extrait']] : kind === 'align' ? all.filter(([k]) => k === 'lyrics_search' || k === 'align') : all;
   const waiting = step === 'waiting_pc';
   $('work-wait').hidden = !waiting;
   if (step === 'pc' || step === 'start') step = kind === 'analyze' ? (remote ? 'fetch' : 'audio') : steps[0][0];
-  $('work-title').textContent = kind === 'build' ? 'Fabrication de l’extrait…' : kind === 'align' ? 'Synchronisation des paroles…' : 'Analyse en cours…';
+  $('work-title').textContent = building ? 'Fabrication de l’extrait…' : kind === 'align' ? 'Synchronisation des paroles…' : 'Analyse en cours…';
   $('work-lead').hidden = kind !== 'analyze';
   const at = Math.max(0, steps.findIndex(([k]) => k === step));
   $('progress').replaceChildren(...steps.map(([k, label], i) => { const li = document.createElement('li'); li.textContent = label + (k === 'download' && pct && i === at ? ' · ' + pct : ''); li.className = waiting ? (kind === 'analyze' && i === 0 ? 'done' : '') : i < at ? 'done' : i === at ? 'now' : ''; return li; }));
-  if ($('v-work').hidden) view('work', kind === 'build' ? 3 : kind === 'align' ? 2 : 1);
+  if ($('v-work').hidden) view('work', building ? 3 : kind === 'align' ? 2 : 1);
 }
 async function poll() {
   clearTimeout(pollTimer);
@@ -376,9 +472,16 @@ async function poll() {
   catch (error) { history.replaceState(null, '', location.pathname); id = null; view('media', 0); $('media-status').textContent = error.message; return; }
   fromYoutube = Boolean(state.url);
   if (state.status === 'working') { showWork(state.step); pollTimer = setTimeout(poll, 1000); return; }
+  if (kind === 'trim' && state.error) {
+    kind = 'analyze'; view('done', 4); $('trim-status').textContent = state.error; $('trim-status').dataset.error = '1'; paintTrim(); return;
+  }
+  if (kind === 'build' && state.status === 'ready' && state.error) {
+    const previous = sel;
+    kind = 'analyze'; await showLyrics(); sel = previous; paint(); $('dock-hint').textContent = state.error; return;
+  }
   if (state.status === 'error') { view('media', 0); $('title').value = state.title; $('artist').value = state.artist; $('media-status').textContent = state.error + (state.url ? ' Relancez avec le lien pour réessayer.' : ' Choisissez à nouveau le fichier pour réessayer.'); if (state.url) { $('yt-url').value = state.url; $('analyze').disabled = false; } return; }
   if (state.status === 'needs_lyrics') return showFind(false);
-  if (kind === 'build' && state.clips.length) return showDone();
+  if ((kind === 'build' || kind === 'trim') && state.clips.length) return showDone();
   showLyrics();
 }
 
@@ -475,10 +578,11 @@ player.addEventListener('playing', () => {
 player.ontimeupdate = () => {
   if (stopAt !== null && player.currentTime >= stopAt) player.pause();
   const t = player.currentTime;
+  if (sourceCue) sourceCue.label.classList.toggle('sync-now', !player.paused && t >= sourceCue.from && t < sourceCue.to);
   document.querySelectorAll('#lyrics .w').forEach((b) => { const w = state.words[+b.dataset.i]; b.classList.toggle('play', !player.paused && t >= w.t && t < w.e + 0.15); });
 };
 player.onplay = () => { $('listen').textContent = '■ Arrêter'; };
-player.onpause = () => { $('listen').textContent = '▶ Écouter'; document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; }); document.querySelectorAll('#lyrics .w.play').forEach((b) => b.classList.remove('play')); };
+player.onpause = () => { sourceCue?.label.classList.remove('sync-now'); $('listen').textContent = '▶ Écouter'; document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; }); document.querySelectorAll('#lyrics .w.play').forEach((b) => b.classList.remove('play')); };
 const backgroundType = $('background-type');
 const backgroundFile = $('background-file');
 function showBackgroundFields() {
@@ -540,113 +644,340 @@ function showDone() {
   // les paroles à deviner, à garder sous les yeux pendant les derniers réglages
   const [, a, b] = /__(\d+)-(\d+)$/.exec(clip.id) || [];
   const first = clip.first ?? +a, last = clip.last ?? +b;
-  const answer = Number.isInteger(first) && state.words?.[last] ? state.words.slice(first, last + 1).map((w) => w.x).join(' ') : '';
+  const answer = clip.answer ?? (Number.isInteger(first) && state.words?.[last] ? state.words.slice(first, last + 1).map((w) => w.x).join(' ') : '');
   $('done-answer-text').textContent = answer; $('done-answer').hidden = !answer;
   showTrim(clip);
   doneParts = Number.isFinite(clip.bedEnd) && Number.isFinite(clip.revealAt) ? { bedEnd: clip.bedEnd, revealAt: clip.revealAt } : null;
-  $('done-parts').hidden = !doneParts;
   // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
   if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
   kind = 'analyze'; view('done', 4);
   config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
 // le fichier contient la manche puis, après une seconde de silence, la reprise chantée de la révélation :
-// l'aperçu s'arrête comme en jeu, à la fin de l'instrumental ; la révélation s'écoute à part
+// un seul bouton : la manche puis, sans le silence qui les sépare dans le fichier, la révélation chantée
 let doneParts = null;
 const doneAudio = $('done-audio');
+doneAudio.addEventListener('play', stopSourcePreview);
 doneAudio.addEventListener('timeupdate', () => {
-  if (doneParts && doneAudio.currentTime >= doneParts.bedEnd && doneAudio.currentTime < doneParts.revealAt - 0.05) { doneAudio.pause(); doneAudio.currentTime = doneParts.bedEnd; }
+  if (doneParts && doneAudio.currentTime >= doneParts.bedEnd && doneAudio.currentTime < doneParts.revealAt - 0.05) doneAudio.currentTime = doneParts.revealAt;
+  paintTransport();
 });
-const hear = (t) => { player.pause(); doneAudio.currentTime = t; doneAudio.play().catch(() => {}); };
-$('hear-round').onclick = () => hear(0);
-$('hear-reveal').onclick = () => hear(doneParts.revealAt);
-$('another-gap').onclick = () => { $('done-audio').pause(); showLyrics(); };
+$('hear-round').onclick = () => {
+  if (!doneAudio.paused || !player.paused) { stopSourcePreview(); doneAudio.pause(); return; }
+  doneAudio.currentTime = 0; doneAudio.play().catch(() => {});
+};
+// ce qu'on entend en ce moment : l'extrait (manche ou révélation) ou un réglage écouté sur la chanson d'origine
+function paintTransport() {
+  const clip = !doneAudio.paused, song = !player.paused && !$('v-done').hidden;
+  const reveal = clip && doneParts && doneAudio.currentTime >= doneParts.revealAt - 0.1;
+  $('hear-round').textContent = clip || song ? '■ Arrêter' : '▶ Écouter l’extrait';
+  $('tc-part').textContent = reveal ? 'La révélation' : clip ? 'La manche' : song ? 'Réglage en écoute' : 'Comme en jeu';
+  $('tc-hint').textContent = reveal ? 'La reprise chantée, après la réponse des joueurs.' : clip ? 'La voix s’arrête aux ciseaux, la musique continue seule.' : song ? 'Sur la chanson d’origine, avec la voix.' : 'La manche (la voix s’arrête aux ciseaux), puis la révélation chantée.';
+}
+for (const media of [doneAudio, player]) for (const ev of ['play', 'pause']) media.addEventListener(ev, paintTransport);
+$('another-gap').onclick = () => { stopSourcePreview(); doneAudio.pause(); showLyrics(); };
 
 /* Début et fin de l'extrait, réglés à la main sur la chanson entière */
-const trim = { clip: null, start: 0, end: 0, cut: 0, cut0: 0, min0: 0, max0: 0, min1: 0, max1: 0 };
-const fmt1 = (s) => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
+const trim = { clip: null };
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const fmt1 = (s) => { const ds = Math.round(s * 10); return fmt(ds / 10) + ',' + ds % 10; };
+const signedSeconds = (s) => (s > 0.005 ? '+' : s < -0.005 ? '−' : '') + Math.abs(s).toFixed(1).replace('.', ',') + ' s';
+function makeTiming(media, clip, first, last, start, end) {
+  const offset0 = clip.lyricsOffset ?? 0;
+  return { id: media.id, duration: media.duration, from: media.words[first].t, to: media.words[last].e,
+    offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
+}
+function cutAtSource(t) {
+  return clamp(t.cut0 + t.offset - t.offset0 + t.cutAdjustment, 0, Math.min(t.duration, t.to + t.offset));
+}
+function extractBounds(t) {
+  const cut = cutAtSource(t);
+  const latestStart = Math.max(0, Math.min(cut - 2, t.from + t.offset));
+  const earliestEnd = Math.min(t.duration, Math.max(cut + 1, t.to + t.offset + 0.5));
+  const end = t.manualEnd ?? t.end + t.offset - t.offset0;
+  return { cut, latestStart, earliestEnd, start: Math.min(t.start, latestStart), end: clamp(end, earliestEnd, t.duration) };
+}
+let pendingSourcePreview, sourceCue;
+function stopSourcePreview() {
+  if (pendingSourcePreview) player.removeEventListener('loadedmetadata', pendingSourcePreview);
+  pendingSourcePreview = null;
+  sourceCue?.label.classList.remove('sync-now');
+  sourceCue = null;
+  player.pause();
+}
+function playSource(mediaId, from, until, cue = null) {
+  stopSourcePreview(); doneAudio.pause();
+  const src = '/api/workshop/' + mediaId + '/audio';
+  if (!player.src.endsWith(src)) { player.src = src; delete player.dataset.lib; }
+  stopAt = until;
+  sourceCue = cue;
+  const go = () => { pendingSourcePreview = null; player.currentTime = from; player.play().catch(() => {}); };
+  if (player.readyState >= 1) go();
+  else { pendingSourcePreview = go; player.addEventListener('loadedmetadata', go, { once: true }); player.load(); }
+}
+function showSync(container, timing, onChange) {
+  container.replaceChildren($('sync-template').content.cloneNode(true));
+  const slider = container.querySelector('input');
+  const buttons = [...container.querySelectorAll('[data-nudge]')];
+  const reset = container.querySelector('[data-sync-reset]');
+  const label = container.querySelector('[data-sync-time]');
+  const min = Math.min(0, Math.max(-30, Math.ceil(-timing.from * 10) / 10));
+  const max = Math.max(0, Math.min(30, Math.floor((timing.duration - timing.to) * 10) / 10));
+  slider.min = min; slider.max = max;
+  const paint = () => {
+    const value = signedSeconds(timing.offset);
+    slider.value = timing.offset; slider.setAttribute('aria-valuetext', value);
+    container.querySelector('output').textContent = value;
+    label.textContent = 'Passage à deviner à ' + fmt1(timing.from + timing.offset);
+    for (const b of buttons) b.disabled = +b.dataset.nudge < 0 ? timing.offset <= min : timing.offset >= max;
+    reset.disabled = timing.offset === 0;
+  };
+  const set = (value) => {
+    stopSourcePreview();
+    timing.offset = clamp(Math.round(value * 10) / 10, min, max);
+    paint(); onChange();
+  };
+  slider.oninput = () => set(+slider.value);
+  for (const b of buttons) b.onclick = () => set(timing.offset + +b.dataset.nudge);
+  reset.onclick = () => set(0);
+  container.querySelector('[data-sync-hear]').onclick = () => {
+    const from = timing.from + timing.offset, to = timing.to + timing.offset;
+    playSource(timing.id, Math.max(0, from - 3), Math.min(timing.duration, to + 2), { label, from, to });
+  };
+  paint();
+}
+/* Table de montage : la chanson entière en aperçu, l'extrait en gros plan sur quatre pistes */
+const mt = { v0: 0, v1: 1, wave: null };
+const waves = {};
+// enveloppe de la chanson (50 valeurs par seconde), décodée une fois par chanson
+function loadWave(mediaId) {
+  return waves[mediaId] ??= fetch('/api/workshop/' + mediaId + '/audio', { headers: { 'X-Atelier-Pin': pin() } })
+    .then((r) => { if (!r.ok) throw new Error(); return r.arrayBuffer(); })
+    .then((buf) => new OfflineAudioContext(1, 1, 8000).decodeAudioData(buf))
+    .then((audio) => {
+      const data = audio.getChannelData(0), rate = 50, step = audio.sampleRate / rate, n = Math.ceil(data.length / step), peaks = new Float32Array(n);
+      let top = 0;
+      for (let i = 0; i < n; i++) {
+        let m = 0; const end = Math.min(data.length, Math.floor((i + 1) * step));
+        for (let j = Math.floor(i * step); j < end; j++) { const v = data[j] < 0 ? -data[j] : data[j]; if (v > m) m = v; }
+        peaks[i] = m; if (m > top) top = m;
+      }
+      if (top) for (let i = 0; i < n; i++) peaks[i] /= top;
+      return { peaks, rate };
+    }).catch(() => { delete waves[mediaId]; return null; });
+}
+function drawWave(canvas, wave, t0, t1, hi0, hi1, on, off) {
+  const dpr = devicePixelRatio || 1, w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (!w || !h) return;
+  if (canvas.width !== w) canvas.width = w;
+  if (canvas.height !== h) canvas.height = h;
+  const g = canvas.getContext('2d'); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement), color = (v) => css.getPropertyValue(v).trim() || v;
+  const cOn = color(on), cOff = color(off), mid = h / 2, per = (t1 - t0) / w;
+  if (!wave) { g.fillStyle = cOff; g.fillRect(0, mid - dpr / 2, w, dpr); return; }
+  for (let x = 0; x < w; x++) {
+    const t = t0 + x * per, a = Math.floor(t * wave.rate), b = Math.max(a + 1, Math.floor((t + per) * wave.rate));
+    let m = 0; for (let i = Math.max(0, a); i < b && i < wave.peaks.length; i++) if (wave.peaks[i] > m) m = wave.peaks[i];
+    const y = Math.max(dpr / 2, m * mid * 0.92);
+    g.fillStyle = t >= hi0 && t <= hi1 ? cOn : cOff; g.fillRect(x, mid - y, 1, y * 2);
+  }
+}
+const offsetRange = (t) => [Math.min(0, Math.max(-30, Math.ceil(-t.from * 10) / 10)), Math.max(0, Math.min(30, Math.floor((t.duration - t.to) * 10) / 10))];
+// gros plan : l'extrait et le passage à deviner, avec un peu de marge
+// « Autour du passage » : une quinzaine de secondes autour de la coupure, assez pour lire les paroles
+mt.mode = (() => { try { return localStorage.getItem('atelier-view') === 'all' ? 'all' : 'gap'; } catch { return 'gap'; } })();
+function fitView() {
+  const { start, end, cut } = extractBounds(trim), g0 = trim.from + trim.offset, g1 = trim.to + trim.offset;
+  let a, b;
+  if (mt.mode === 'all') { a = Math.min(start, g0); b = Math.max(end, g1); const pad = Math.max(2, (b - a) * 0.1); a -= pad; b += pad; }
+  else { a = Math.min(g0, cut) - 6; b = Math.max(g1, cut) + 4; const short = 16 - (b - a); if (short > 0) { a -= short / 2; b += short / 2; } }
+  if (a < 0) { b -= a; a = 0; }
+  if (b > trim.duration) { a = Math.max(0, a - (b - trim.duration)); b = trim.duration; }
+  mt.v0 = a; mt.v1 = b;
+}
+for (const b of document.querySelectorAll('.mt-view [data-view]')) b.onclick = () => {
+  mt.mode = b.dataset.view; try { localStorage.setItem('atelier-view', mt.mode); } catch {}
+  fitView(); paintTrim();
+};
+const vx = (t) => (100 * (t - mt.v0) / (mt.v1 - mt.v0)) + '%';
+const vw = (d) => (100 * Math.max(0, d) / (mt.v1 - mt.v0)) + '%';
+const vt = (clientX) => { const r = $('mt-area').getBoundingClientRect(); return mt.v0 + clamp((clientX - r.left) / r.width, 0, 1) * (mt.v1 - mt.v0); };
+const place = (node, from, to) => { node.style.left = vx(from); if (to !== undefined) node.style.width = vw(to - from); };
 function showTrim(clip) {
-  const ok = clip && Number.isFinite(clip.sourceStart) && Number.isFinite(clip.sourceEnd) && Number.isInteger(clip.first) && state.words?.[clip.last] && state.duration;
+  const ok = clip && Number.isFinite(clip.sourceStart) && Number.isFinite(clip.sourceEnd) && state.words?.[clip.first] && state.words?.[clip.last] && state.duration;
   $('trim').hidden = !ok;
   if (!ok) return;
-  const cut = clip.sourceStart + clip.cutAt;
-  Object.assign(trim, { clip, start: clip.sourceStart, end: clip.sourceEnd, cut, cut0: cut, min0: 0, max1: state.duration });
-  const pct = (t) => (100 * t / state.duration) + '%';
-  $('trim-gap').style.left = pct(state.words[clip.first].t);
-  $('trim-gap').style.width = pct(Math.max(0.3, state.words[clip.last].e - state.words[clip.first].t));
+  Object.assign(trim, makeTiming(state, clip, clip.first, clip.last, clip.sourceStart, clip.sourceEnd), { clip, manualEnd: null });
   $('trim-total').textContent = fmt(state.duration);
-  $('trim-status').textContent = '';
-  paintTrim();
+  $('trim-status').textContent = ''; delete $('trim-status').dataset.error;
+  $('tc').textContent = fmt1(clip.sourceStart);
+  fitView(); requestAnimationFrame(paintTrim);
+  const songId = id; mt.wave = null;
+  loadWave(songId).then((wave) => { if (id === songId && trim.clip === clip) { mt.wave = wave; paintTrim(); } });
 }
 function paintTrim() {
-  const pct = (t) => (100 * t / state.duration) + '%';
-  // les bornes suivent la coupure : au moins 2 s de chant avant, 1 s d'instrumental après
-  trim.max0 = Math.max(0, trim.cut - 2); trim.min1 = Math.max(trim.cut + 1, state.words[trim.clip.last].e + 0.5);
-  trim.start = Math.min(trim.start, trim.max0); trim.end = Math.max(trim.end, trim.min1);
-  $('trim-cut').style.left = pct(trim.cut);
-  const shift = trim.cut - trim.cut0;
-  $('cut-shift').textContent = (shift > 0.005 ? '+' : shift < -0.005 ? '−' : '') + Math.abs(shift).toFixed(1).replace('.', ',') + ' s';
-  $('trim-h0').style.left = pct(trim.start); $('trim-h1').style.left = pct(trim.end);
-  $('trim-keep').style.left = pct(trim.start); $('trim-keep').style.width = pct(trim.end - trim.start);
-  $('trim-start').textContent = fmt1(trim.start); $('trim-end').textContent = fmt1(trim.end); $('trim-len').textContent = Math.round(trim.end - trim.start) + ' s';
-  const changed = Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs(trim.end - trim.clip.sourceEnd) > 0.05 || Math.abs(trim.cut - trim.cut0) > 0.05;
+  if ($('trim').hidden || !trim.clip) return;
+  const { cut, start, end } = extractBounds(trim), off = trim.offset, g0 = trim.from + off, g1 = trim.to + off;
+  // la chanson entière
+  const pct = (t) => (100 * t / trim.duration) + '%';
+  $('mt-over-win').style.left = pct(start); $('mt-over-win').style.width = pct(end - start);
+  $('mt-over-gap').style.left = pct(g0); $('mt-over-gap').style.width = pct(g1 - g0);
+  $('trim-h0o').style.left = pct(start); $('trim-h1o').style.left = pct(end);
+  drawWave($('mt-over-wave'), mt.wave, 0, trim.duration, start, end, '--spot', '--rule-strong');
+  // la règle : un repère toutes les 1, 2, 5… secondes
+  const span = mt.v1 - mt.v0, room = Math.max(3, Math.floor($('mt-area').clientWidth / 56)), stepS = [1, 2, 5, 10, 15, 30, 60].find((x) => span / x <= room) || 60;
+  const ticks = [];
+  for (let t = Math.ceil(mt.v0 / stepS) * stepS; t <= mt.v1; t += stepS) { const d = el('span', 'mt-tick', fmt(t)); place(d, t); ticks.push(d); }
+  $('mt-ruler').replaceChildren(...ticks);
+  // les paroles, mot par mot, à l'endroit où on les entend
+  const words = [];
+  state.words.forEach((w, i) => {
+    const a = w.t + off, b = Math.max(w.e + off, a + 0.15);
+    if (b < mt.v0 || a > mt.v1) return;
+    // deux rangées en alternance : chaque mot a la place jusqu'au mot d'après le suivant
+    const d = el('div', 'mt-word' + (i >= trim.clip.first && i <= trim.clip.last ? ' g' : '') + (i % 2 ? ' r2' : ''), w.x);
+    const next = state.words[i + 2];
+    d.dataset.i = i; d.title = w.x; place(d, a);
+    d.style.minWidth = vw(b - a); if (next) d.style.maxWidth = vw(next.t - w.t);
+    words.push(d);
+  });
+  $('mt-lyr').replaceChildren(...words);
+  place($('mt-sung'), start, cut); place($('mt-mute'), cut, end);
+  drawWave($('mt-wave'), mt.wave, mt.v0, mt.v1, start, end, '--haze', '--rule-strong');
+  $('mt-out-l').style.left = '0'; $('mt-out-l').style.width = vw(start - mt.v0);
+  $('mt-out-r').style.left = vx(end); $('mt-out-r').style.right = '0';
+  place($('mt-gapcol'), g0, g1);
+  for (const [h, t, name] of [[$('trim-h0'), start, 'Début'], [$('trim-h1'), end, 'Fin']]) {
+    const out = t < mt.v0 ? -1 : t > mt.v1 ? 1 : 0;
+    place(h, clamp(t, mt.v0, mt.v1));
+    h.classList.toggle('edge', !!out); h.classList.toggle('l', out < 0); h.classList.toggle('r', out > 0);
+    h.firstChild.textContent = out < 0 ? '◂ ' + name + ' ' + fmt1(t) : out > 0 ? name + ' ' + fmt1(t) + ' ▸' : name;
+  }
+  for (const b of document.querySelectorAll('.mt-view [data-view]')) b.setAttribute('aria-pressed', b.dataset.view === mt.mode);
+  place($('trim-cut'), cut);
+  // les valeurs précises
+  $('trim-start').textContent = fmt1(start); $('trim-end').textContent = fmt1(end); $('trim-cutv').textContent = fmt1(cut);
+  $('cut-shift').textContent = Math.abs(trim.cutAdjustment) > 0.005 ? signedSeconds(trim.cutAdjustment) : '';
+  $('trim-len').textContent = Math.round(end - start) + ' s';
+  $('mt-off').textContent = $('mt-off-label').textContent = signedSeconds(off);
+  $('mt-lyr').setAttribute('aria-valuetext', signedSeconds(off));
+  $('mt-off-zero').disabled = off === 0;
+  const changed = trim.offset !== trim.offset0 || Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs((trim.manualEnd ?? trim.end) - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
   $('trim-apply').disabled = !changed;
+  if (!$('trim-status').dataset.error) $('trim-status').textContent = changed ? 'Réglages modifiés : appliquez-les pour refabriquer l’extrait.' : '';
+  tickHead();
 }
 function setTrim(which, t) {
   t = Math.round(t * 10) / 10;
-  if (which === 0) trim.start = Math.min(trim.max0, Math.max(trim.min0, t));
-  else trim.end = Math.min(trim.max1, Math.max(trim.min1, t));
+  const { latestStart, earliestEnd } = extractBounds(trim);
+  if (which === 0) trim.start = clamp(t, 0, latestStart);
+  else trim.manualEnd = clamp(t, earliestEnd, trim.duration);
   paintTrim();
 }
-// à l'arrêt d'une poignée : on écoute quelques secondes à cet endroit de la chanson
+function setOffset(value) {
+  const [min, max] = offsetRange(trim);
+  trim.offset = clamp(Math.round(value * 10) / 10, min, max);
+  paintTrim();
+}
+function nudge(k, d) {
+  const { start, end } = extractBounds(trim);
+  if (k === 'start') setTrim(0, start + d);
+  else if (k === 'end') setTrim(1, end + d);
+  else if (k === 'cut') { nudgeCut(trim, d); paintTrim(); }
+  else setOffset(trim.offset + d);
+}
+// chaque réglage se fait entendre
 function hearTrim(which) {
-  $('done-audio').pause();
-  if (!player.src.endsWith('/' + id + '/audio')) player.src = '/api/workshop/' + id + '/audio';
-  const from = which === 0 ? trim.start : Math.max(0, trim.end - 4);
-  stopAt = which === 0 ? trim.start + 4 : trim.end;
-  const go = () => { player.currentTime = from; player.play().catch(() => {}); };
-  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
+  const { start, end } = extractBounds(trim);
+  playSource(id, which === 0 ? start : Math.max(0, end - 4), which === 0 ? start + 4 : end);
 }
-for (const which of [0, 1]) {
-  const h = $('trim-h' + which);
-  h.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); h.setPointerCapture(e.pointerId); h.focus();
-    const r = $('trim-bar').getBoundingClientRect();
-    const move = (ev) => setTrim(which, (ev.clientX - r.left) / r.width * state.duration);
-    const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); hearTrim(which); };
-    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up);
-  });
-  h.addEventListener('keydown', (e) => {
-    const step = e.shiftKey ? 5 : 0.5, d = { ArrowLeft: -step, ArrowRight: step }[e.key];
-    if (d === undefined) return;
-    e.preventDefault(); setTrim(which, (which ? trim.end : trim.start) + d);
-  });
-  h.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow')) hearTrim(which); });
-}
-// la voix s'arrête un poil trop tôt (ou trop tard) : on déplace la coupure, 3 s au plus de part et d'autre
-for (const b of document.querySelectorAll('[data-cut]')) b.onclick = () => {
-  const t = Math.round((trim.cut + Number(b.dataset.cut)) * 100) / 100;
-  trim.cut = Math.min(trim.cut0 + 3, state.words[trim.clip.last].e, Math.max(0, trim.cut0 - 3, t));
-  paintTrim(); hearCut();
-};
 function hearCut() {
-  $('done-audio').pause();
-  if (!player.src.endsWith('/' + id + '/audio')) player.src = '/api/workshop/' + id + '/audio';
-  stopAt = trim.cut; // la chanson d'origine jusqu'à la coupure : c'est ce qu'on entendra chanter avant le trou
-  const go = () => { player.currentTime = Math.max(0, trim.cut - 4); player.play().catch(() => {}); };
-  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
+  const cut = cutAtSource(trim);
+  playSource(id, Math.max(0, cut - 4), cut);
 }
-$('cut-hear').onclick = hearCut;
+function hearLyrics() {
+  const from = trim.from + trim.offset, to = trim.to + trim.offset;
+  playSource(id, Math.max(0, from - 3), Math.min(trim.duration, to + 2), { label: $('mt-gapcol'), from, to });
+}
+const hearOf = (k) => k === 'start' ? hearTrim(0) : k === 'end' ? hearTrim(1) : k === 'cut' ? hearCut() : hearLyrics();
+// glisser une poignée, les ciseaux ou la piste des paroles ; un simple clic écoute depuis cet endroit
+$('mt-area').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const area = $('mt-area'), grip = e.target.closest('[data-k]'), k = grip?.dataset.k || 'seek';
+  e.preventDefault(); area.setPointerCapture(e.pointerId); grip?.focus();
+  const x0 = e.clientX, off0 = trim.offset, width = area.getBoundingClientRect().width, span = mt.v1 - mt.v0;
+  let moved = false;
+  if (k === 'offset') $('mt-lyr').classList.add('drag');
+  const move = (ev) => {
+    if (!moved && Math.abs(ev.clientX - x0) < 4) return;
+    if (!moved) { moved = true; stopSourcePreview(); doneAudio.pause(); }
+    if (k === 'start' || k === 'end') setTrim(k === 'start' ? 0 : 1, vt(ev.clientX));
+    else if (k === 'cut') { nudgeCut(trim, vt(ev.clientX) - cutAtSource(trim)); paintTrim(); }
+    else if (k === 'offset') setOffset(off0 + (ev.clientX - x0) / width * span);
+  };
+  const up = (ev) => {
+    area.removeEventListener('pointermove', move); area.removeEventListener('pointerup', up); area.removeEventListener('pointercancel', up);
+    $('mt-lyr').classList.remove('drag');
+    if (!moved) { if (k !== 'seek' && k !== 'offset') hearOf(k); return; }
+    fitView(); paintTrim(); hearOf(k);
+  };
+  area.addEventListener('pointermove', move); area.addEventListener('pointerup', up); area.addEventListener('pointercancel', up);
+});
+// au clavier : flèches = 0,1 s, Maj + flèches = 1 s
+for (const grip of document.querySelectorAll('#mt-area [data-k]')) {
+  grip.addEventListener('keydown', (e) => {
+    const d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (d === undefined) return;
+    e.preventDefault(); nudge(grip.dataset.k, d * (e.shiftKey ? 1 : 0.1)); fitView(); paintTrim();
+  });
+  grip.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow')) hearOf(grip.dataset.k); });
+}
+for (const b of document.querySelectorAll('.mt-insp [data-k]')) b.onclick = (e) => {
+  nudge(b.dataset.k, +b.dataset.d * (e.shiftKey ? 10 : 1)); fitView(); paintTrim(); hearOf(b.dataset.k);
+};
+$('mt-off-zero').onclick = () => { setOffset(0); fitView(); paintTrim(); hearLyrics(); };
+// la vue d'ensemble : grands déplacements du début et de la fin, clic pour écouter
+$('mt-over').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const over = $('mt-over'), r = over.getBoundingClientRect(), at = (x) => clamp((x - r.left) / r.width, 0, 1) * trim.duration;
+  const which = e.target.id === 'trim-h0o' ? 0 : e.target.id === 'trim-h1o' ? 1 : null;
+  e.preventDefault();
+  if (which === null) return;
+  over.setPointerCapture(e.pointerId);
+  const move = (ev) => { setTrim(which, at(ev.clientX)); fitView(); paintTrim(); };
+  const up = () => { over.removeEventListener('pointermove', move); over.removeEventListener('pointerup', up); hearTrim(which); };
+  over.addEventListener('pointermove', move); over.addEventListener('pointerup', up);
+});
+// tête de lecture : la chanson d'origine, ou l'extrait fabriqué recalé sur la chanson
+let headRaf = 0;
+function headTime() {
+  if ($('v-done').hidden || $('trim').hidden || !trim.clip) return null;
+  if (!player.paused && player.src.endsWith('/' + id + '/audio')) return player.currentTime;
+  if (!doneAudio.paused && (!doneParts || doneAudio.currentTime < doneParts.bedEnd)) return trim.clip.sourceStart + doneAudio.currentTime;
+  return null;
+}
+function tickHead() {
+  cancelAnimationFrame(headRaf);
+  const t = headTime(), head = $('mt-head');
+  $('mt-over-head').hidden = t === null; head.hidden = t === null || t < mt.v0 || t > mt.v1;
+  for (const d of $('mt-lyr').children) { const w = state.words[+d.dataset.i]; d.classList.toggle('on', t !== null && t >= w.t + trim.offset && t < w.e + trim.offset + 0.1); }
+  if (t === null) return;
+  head.style.left = vx(t); $('mt-over-head').style.left = (100 * t / trim.duration) + '%'; $('tc').textContent = fmt1(t);
+  headRaf = requestAnimationFrame(tickHead);
+}
+for (const media of [player, doneAudio]) for (const ev of ['play', 'pause', 'seeked']) media.addEventListener(ev, tickHead);
+addEventListener('resize', () => { if (!$('v-done').hidden) paintTrim(); });
 $('trim-reset').onclick = () => applyTrim(true);
 $('trim-apply').onclick = () => applyTrim(false);
 async function applyTrim(auto) {
   const c = trim.clip;
-  $('trim-apply').disabled = true; $('trim-reset').disabled = true; player.pause(); $('done-audio').pause();
+  const { start, end, cut } = extractBounds(trim);
+  $('trim-apply').disabled = true; $('trim-reset').disabled = true; stopSourcePreview(); doneAudio.pause();
   try {
     await post('/' + id + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
-      ...(auto ? {} : { start: trim.start, end: trim.end, cut: trim.cut }) });
-    kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
-  } catch (error) { $('trim-status').textContent = error.message; paintTrim(); }
+      lyricsOffset: trim.offset, ...(auto ? {} : { start, end, cut }) });
+    kind = 'trim'; $('v-work').hidden = true; showWork('build'); poll();
+  } catch (error) { $('trim-status').textContent = error.message; $('trim-status').dataset.error = '1'; paintTrim(); }
   finally { $('trim-reset').disabled = false; }
 }
 
@@ -824,18 +1155,20 @@ function openEdit(c) {
   $('edit-lyrics').disabled = !c.words?.length;
   // la coupure ne se déplace qu'en refaisant l'extrait : il faut la chanson analysée sur ce PC
   const m = /__(\d+)-(\d+)$/.exec(c.id);
-  editCut = null; $('edit-cut').hidden = true;
+  editCut = null; $('edit-cut').hidden = true; $('edit-sync').hidden = true;
   if (c.media && m && Number.isFinite(c.cutAt)) {
     // début de l'extrait dans la chanson : connu pour les extraits récents, sinon retrouvé
     // grâce au premier mot à deviner (son moment dans la chanson moins son moment dans l'extrait)
     const known = Number.isFinite(c.sourceStart) && Number.isFinite(c.sourceEnd);
-    (known ? Promise.resolve(null) : api('/' + c.media)).then((media) => {
-      const gap = c.words?.find((w) => w.gap), song = media?.words?.[+m[1]];
+    api('/' + c.media).then((media) => {
+      const first = +m[1], last = +m[2];
+      const gap = c.words?.find((w) => w.gap), song = media.words?.[first];
       const start = known ? c.sourceStart : gap && song ? Math.max(0, song.t - gap.t) : null;
-      if (editing !== c || start === null) return;
+      if (editing !== c || !$('edit-dialog').open || start === null || !song || !media.words?.[last] || !media.duration) return;
       const end = known ? c.sourceEnd : start + c.bedEnd;
-      editCut = { first: +m[1], last: +m[2], start, end, cut0: start + c.cutAt, cut: start + c.cutAt };
-      $('edit-cut').hidden = false; paintEditCut();
+      editCut = { ...makeTiming(media, c, first, last, start, end), first, last };
+      showSync($('edit-sync'), editCut, paintEditCut);
+      $('edit-sync').hidden = false; $('edit-cut').hidden = false; paintEditCut();
     }).catch(() => {});
   }
   const lists = [...lib.local.lists];
@@ -872,31 +1205,25 @@ function lyricsLines(c) {
   if (n !== c.words.length) throw new Error('Les paroles doivent garder ' + c.words.length + ' mots (il y en a ' + n + ').');
   return lines;
 }
-// fin de la voix avant le trou, décalée comme dans l'atelier (3 s au plus de part et d'autre), écoutée sur la chanson d'origine
 let editCut = null;
 function paintEditCut() {
-  if (!editCut) return;
-  const d = editCut.cut - editCut.cut0;
-  $('edit-cut-shift').textContent = (d > 0.005 ? '+' : d < -0.005 ? '−' : '') + Math.abs(d).toFixed(1).replace('.', ',') + ' s';
+  $('edit-cut-shift').textContent = signedSeconds(editCut.cutAdjustment);
 }
 function hearEditCut() {
-  const src = '/api/workshop/' + editing.media + '/audio';
-  if (!player.src.endsWith(src)) player.src = src;
-  stopAt = editCut.cut;
-  const go = () => { player.currentTime = Math.max(0, editCut.cut - 4); player.play().catch(() => {}); };
-  player.readyState >= 1 ? go() : (player.addEventListener('loadedmetadata', go, { once: true }), player.load());
+  const cut = cutAtSource(editCut);
+  playSource(editCut.id, Math.max(0, cut - 4), cut);
 }
 for (const b of document.querySelectorAll('[data-ecut]')) b.onclick = () => {
-  const t = Math.round((editCut.cut + Number(b.dataset.ecut)) * 100) / 100;
-  editCut.cut = Math.min(editCut.cut0 + 3, Math.max(0, editCut.cut0 - 3, t));
+  nudgeCut(editCut, +b.dataset.ecut);
   paintEditCut(); hearEditCut();
 };
 $('edit-cut-hear').onclick = hearEditCut;
-$('edit-dialog').addEventListener('close', () => player.pause());
+$('edit-dialog').addEventListener('close', stopSourcePreview);
 $('edit-form').onsubmit = async (e) => {
   if (e.submitter?.value !== 'save') return;
   e.preventDefault();
   const c = editing, save = $('edit-save');
+  const timing = editCut && { ...editCut };
   save.disabled = true; $('edit-status').textContent = 'Enregistrement…';
   try {
     const lists = [...$('edit-lists').querySelectorAll('input:checked')].map((x) => x.value);
@@ -912,18 +1239,17 @@ $('edit-form').onsubmit = async (e) => {
       await bgPost({ type: 'file', file: up.file });
     } else if (editBg.value === 'youtube') await bgPost({ type: 'youtube', url: $('edit-url').value.trim() });
     else if (editBg.value === 'none') await bgPost({ type: 'none' });
-    if (editCut && Math.abs(editCut.cut - editCut.cut0) > 0.05) {
-      // l'extrait est refait avec la nouvelle coupure (mêmes début et fin, même fond, mêmes paroles)
-      $('edit-status').textContent = 'Fabrication de l’extrait…'; player.pause();
-      await post('/' + c.media + '/clip', { first: editCut.first, last: editCut.last, replace: c.id, keepBackground: true, title: $('edit-title').value, film: $('edit-film').value, listId: null,
-        start: Math.min(editCut.start, Math.max(0, editCut.cut - 2)), end: Math.max(editCut.end, editCut.cut + 1), cut: editCut.cut });
+    if (timing && (timing.offset !== timing.offset0 || Math.abs(cutAtSource(timing) - timing.cut0) > 0.05)) {
+      $('edit-status').textContent = 'Fabrication de l’extrait…'; stopSourcePreview();
+      const { start, end, cut } = extractBounds(timing);
+      await post('/' + c.media + '/clip', { first: timing.first, last: timing.last, replace: c.id, keepBackground: true, title: $('edit-title').value, film: $('edit-film').value, listId: null,
+        start, end, cut, lyricsOffset: timing.offset });
       for (;;) {
         await new Promise((r) => setTimeout(r, 1000));
         const st = await api('/' + c.media);
-        if (st.status === 'error') throw new Error(st.error || 'La fabrication de l’extrait a échoué.');
+        if (st.error) throw new Error(st.error);
         if (st.status !== 'working') break;
       }
-      editCut.cut0 = editCut.cut; paintEditCut();
     }
     // si un serveur en ligne est relié, la modification y part tout de suite
     if (lib.online && !(await publish(save, $('edit-status'), [c.id]))) { showLibrary(); save.disabled = false; return; }

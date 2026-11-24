@@ -114,29 +114,125 @@ $('list-form').onsubmit = async (event) => {
   } catch (error) { $('save-status').textContent = error.message; }
   finally { $('save-list').disabled = false; }
 };
-$('create-room').onclick = () => {
-  if (!socket.connected || creatingRoom) return;
-  creatingRoom = true; $('create-room').disabled = true; $('create-room').textContent = 'Création du salon…';
-  socket.emit('host:create', { listId: selectedList.id, rounds: roundsWanted(), answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value) });
-};
-socket.on('host:created', ({ code, rounds, joinUrl, qr }) => {
-  roomCover = coverSource(selectedList.theme, selectedList.coverImage);
-  creatingRoom = false; $('create-room').textContent = 'Créer le salon →'; $('code').textContent = code; $('players').replaceChildren(); $('start').disabled = true;
-  if (qr) $('qr').src = qr;
-  $('join-url').textContent = joinUrl || '';
-  $('lobby-msg').textContent = 'En attente des joueurs…';
-  $('lobby-style').textContent = selectedList.name + ' · ' + rounds + ' manches';
-  show('s-lobby');
-});
-socket.on('host:error', message => { $('create-room').textContent = 'Créer le salon →'; creatingRoom = false; $('create-room').disabled = false; notify(message); });
-$('leave-room').onclick = () => { socket.emit('host:leave'); show('s-menu'); };
-function connectionState() {
-  $('connection').textContent = socket.connected ? 'Connecté' : 'Connexion interrompue';
-  $('create-room').disabled = !socket.connected || !selectedList?.songIds.length;
+const HOST_SESSION_KEY = 'dtf-host-session';
+let hostSession = null;
+try { hostSession = JSON.parse(sessionStorage.getItem(HOST_SESSION_KEY) || 'null'); } catch {}
+let hostRequest = null;
+let hostRetry;
+
+function saveHostSession(value) {
+  hostSession = value;
+  try {
+    if (value) sessionStorage.setItem(HOST_SESSION_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(HOST_SESSION_KEY);
+  } catch {}
 }
-socket.on('connect', connectionState);
-socket.on('disconnect', () => { creatingRoom = false; audio.pause(); connectionState(); show('s-menu'); notify('Connexion interrompue. Le salon a été fermé ; vous pourrez en recréer un après reconnexion.'); });
-connectionState(); loadLibrary();
+
+function connectionState(message = '') {
+  $('connection').textContent = socket.connected && !message ? 'Connecté' : 'Connexion au serveur…';
+  $('stage-connection').textContent = message;
+  $('stage-connection').hidden = !message;
+  creatingRoom = Boolean(hostSession?.pending);
+  $('create-room').textContent = creatingRoom ? 'Création du salon…' : 'Créer le salon →';
+  $('create-room').disabled = !socket.connected || Boolean(hostSession) || !selectedList?.songIds.length;
+  $('leave-room').disabled = !socket.connected || Boolean(message);
+  $('again').disabled = !socket.connected || Boolean(message);
+  if (message) {
+    $('start').disabled = true;
+    $('next').disabled = true;
+  }
+}
+
+function renderRoom(data) {
+  if (data.list) roomCover = coverSource(data.list.theme, data.list.coverImage);
+  $('code').textContent = data.code;
+  $('live-code').textContent = data.code;
+  for (const id of ['qr', 'live-qr']) {
+    $(id).hidden = !data.qr;
+    if (data.qr) $(id).src = data.qr;
+  }
+  $('join-url').textContent = data.joinUrl;
+  $('live-link').href = data.joinUrl;
+  $('lobby-style').textContent = (data.list?.name || 'Salon') + ' · ' + data.rounds + ' manches';
+  renderPlayers(data.players);
+  if (data.state === 'lobby') return show('s-lobby');
+  renderIntro(data.intro);
+  if (data.clip) renderClip(data.clip);
+  if (data.answerWindow) {
+    renderAnswerWindow(data.answerWindow);
+    renderAnswerCount(data.answers);
+  }
+  if (data.reveal) renderReveal(data.reveal);
+  if (data.final) renderFinal(data.final);
+}
+
+function clearHostRoom(message = '') {
+  saveHostSession(null);
+  hostRequest = null;
+  clearTimeout(hostRetry);
+  $('live-join').open = false;
+  connectionState();
+  show('s-menu');
+  if (message) notify(message);
+}
+
+function syncHost(event = 'host:resume') {
+  clearTimeout(hostRetry);
+  if (!socket.connected || !hostSession || hostRequest) return;
+  const attempt = hostRequest = hostSession;
+  connectionState(attempt.leaving ? 'Fermeture du salon…' : attempt.pending ? 'Création du salon…' : 'Reprise du salon…');
+  const onResponse = (error, data) => {
+    if (hostRequest !== attempt) return;
+    hostRequest = null;
+    if (!socket.connected) return;
+    if (error || data?.retry) {
+      hostRetry = setTimeout(syncHost, 1000);
+      return;
+    }
+    if (event === 'host:leave' && data?.ok) return clearHostRoom();
+    if (!data?.ok) {
+      if (event === 'host:resume' && attempt.pending) return syncHost('host:create');
+      if (event === 'host:resume' && attempt.leaving) return clearHostRoom();
+      clearHostRoom(data?.error || 'Le salon a expiré. Créez un nouveau salon.');
+      return;
+    }
+    saveHostSession({ token: attempt.token, leaving: attempt.leaving });
+    if (attempt.leaving) return syncHost('host:leave');
+    connectionState();
+    renderRoom(data);
+  };
+  const request = socket.timeout(GAME_ACK_MS);
+  if (event === 'host:leave') request.emit(event, onResponse);
+  else request.emit(event, { ...attempt.pending, token: attempt.token }, onResponse);
+}
+
+$('create-room').onclick = () => {
+  if (!socket.connected || creatingRoom || hostSession) return;
+  $('notice').hidden = true;
+  saveHostSession({ token: gameToken(), pending: {
+    listId: selectedList.id, rounds: roundsWanted(), origin: location.origin,
+    answerSeconds: Number(document.querySelector('[name=answer-time]:checked').value),
+  } });
+  syncHost('host:create');
+};
+$('leave-room').onclick = $('again').onclick = () => {
+  if (!socket.connected || !hostSession || hostRequest) return;
+  saveHostSession({ token: hostSession.token, leaving: true });
+  syncHost('host:leave');
+};
+socket.on('connect', () => { connectionState(); syncHost(); });
+socket.on('disconnect', () => {
+  hostRequest = null;
+  clearTimeout(hostRetry);
+  audio.pause();
+  connectionState('Connexion interrompue. Reconnexion automatique…');
+});
+socket.on('connect_error', () => connectionState('Serveur inaccessible pour le moment. Nouvel essai automatique…'));
+socket.on('host:replaced', () => clearHostRoom('Le salon est ouvert sur un autre écran hôte.'));
+reconnectWhenOnline(socket);
+connectionState('Connexion au serveur…');
+socket.connect();
+loadLibrary();
 // Navigation de la collection au clavier, comme un menu de console.
 $('styles').addEventListener('keydown', event => {
   const cards = [...$('styles').querySelectorAll('.style-card')];

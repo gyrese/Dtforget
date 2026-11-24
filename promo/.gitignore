@@ -1,0 +1,5 @@
+captures/
+video/assets/clips/
+video/.hyperframes/
+video/node_modules/
+*.mp4

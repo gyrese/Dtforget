@@ -43,6 +43,8 @@ const ROUNDS = 5;          // nombre de manches par partie
 const INTRO_MS = Number(process.env.INTRO_MS || 3000);     // présentation avant l'extrait
 const ANSWER_MS = Number(process.env.ANSWER_MS || 60000);   // chrono par défaut, après l'instrumental (réglable à la création du salon)
 const PORT = Number(process.env.PORT || 3000);
+const HOST_GRACE_MS = Number(process.env.HOST_GRACE_MS || 600000);
+const PLAYER_GRACE_MS = Number(process.env.PLAYER_GRACE_MS || 8000);
 
 const app = express();
 // Self-hosted animation runtimes: the Host also works without a public CDN.
@@ -68,6 +70,7 @@ app.get("/api/content-count", (_req, res) => res.json({ clips: CONTENT.length })
 
 const http = createServer(app);
 const io = new Server(http, { cors: { origin: "*" } });
+http.once("close", () => io.engine.close());
 
 // Atelier : sur place (ce PC a le Python du spike et la carte graphique), ou « remote » sur le serveur en ligne,
 // où les traitements sont confiés au PC qui s'y connecte (agent.js). ATELIER=off le retire.
@@ -98,6 +101,9 @@ app.get('/api/config', (_req, res) => res.json({
 }));
 
 const rooms = new Map();
+const hostSessions = new Map();
+const validToken = (token) => typeof token === "string" && /^[a-f0-9-]{32,36}$/i.test(token);
+const findRoom = (code) => typeof code === "string" ? rooms.get(code.trim().toUpperCase()) : undefined;
 
 function code4() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -152,8 +158,39 @@ function pick(n, source = CONTENT) {
   return out;
 }
 
-function broadcastPlayers(room) {
-  io.to(room.hostId).emit("players:update", [...room.players.values()].map((p) => ({ name: p.name, score: p.score })));
+const playerList = (room) => [...room.players.values()].map((p) => ({ name: p.name, score: p.score, connected: Boolean(p.socketId) }));
+const connectedPlayers = (room) => [...room.players.values()].filter((p) => p.socketId).length;
+const answerCount = (room) => [...room.players.values()].filter((p) => p.answer !== null).length;
+const tellHost = (room, event, data) => { if (room.hostId) io.to(room.hostId).emit(event, data); };
+const broadcastPlayers = (room) => tellHost(room, "players:update", playerList(room));
+
+function playerState(room, player) {
+  const state = {
+    ok: true, code: room.code, name: player.name, score: player.score,
+    round: room.round + 1, total: room.songs.length, state: room.state,
+    answering: room.state === "answering", answered: player.answer !== null,
+  };
+  if (room.state === "reveal") state.result = { answer: room.reveal.answer, points: player.points };
+  if (room.state === "over") state.rank = { position: player.rank, total: room.players.size };
+  return state;
+}
+
+function pushPlayerResults(room) {
+  for (const player of room.players.values()) {
+    if (player.socketId) io.to(player.socketId).emit("player:state", playerState(room, player));
+  }
+}
+
+function closeRoom(room) {
+  clearTimers(room);
+  clearTimeout(room.hostExpiry);
+  for (const player of room.players.values()) clearTimeout(player.disconnectTimer);
+  io.to(room.code).emit("room:closed");
+  io.to(room.code + ":remote").emit("remote:closed");
+  io.in(room.code).socketsLeave(room.code);
+  io.in(room.code + ":remote").socketsLeave(room.code + ":remote");
+  rooms.delete(room.code);
+  hostSessions.delete(room.hostToken);
 }
 
 function clearTimers(room) {
@@ -164,19 +201,25 @@ function clearTimers(room) {
 function startRound(room) {
   const clip = room.songs[room.round];
   room.state = "intro";
-  room.answering = false;
-  for (const p of room.players.values()) p.answer = null;
+  for (const p of room.players.values()) {
+    clearTimeout(p.disconnectTimer);
+    p.waitUntil = 0;
+    p.answer = null;
+    p.points = 0;
+  }
   pushRemote(room);
-  io.to(room.code).emit("round:intro", {
+  room.intro = {
     round: room.round + 1,
     total: room.songs.length,
     film: clip.film,
     title: clip.title,
-  });
+  };
+  io.to(room.code).emit("round:intro", room.intro);
   room.timers.push(setTimeout(() => {
     room.state = "playing";
+    room.clipStartedAt = Date.now();
     pushRemote(room);
-    io.to(room.hostId).emit("round:clip", {
+    room.clip = {
       audio: clip.audio,
       background: clip.background,
       cutAt: clip.cutAt,
@@ -187,24 +230,30 @@ function startRound(room) {
       // rien après le trou : la suite n'est plus chantée pendant la manche
       words: clip.words.slice(0, lastGap(clip) + 1).map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
       answerLength: clip.answer.split(" ").length,
-    });
+    };
+    tellHost(room, "round:clip", room.clip);
     room.timers.push(setTimeout(() => openAnswer(room, clip), clip.cutAt * 1000));
   }, INTRO_MS));
 }
 
 function openAnswer(room, clip) {
   room.state = "answering";
-  room.answering = true;
   // on peut répondre dès la coupure ; le chrono démarre quand l'instrumental s'arrête
   const music = Math.max(0, bedEnd(clip) - clip.cutAt);
   const timer = room.answerMs / 1000;
-  io.to(room.code).emit("answer:open", { seconds: music + timer, music, timer, answerLength: clip.answer.split(" ").length });
+  room.answerStartedAt = Date.now();
+  room.answerWindow = { round: room.round + 1, seconds: music + timer, music, timer, answerLength: clip.answer.split(" ").length };
+  io.to(room.code).emit("answer:open", room.answerWindow);
   pushRemote(room);
   room.timers.push(setTimeout(() => reveal(room, clip), (music + timer) * 1000));
 }
 
-// les joueurs déconnectés ne retiennent pas la manche
-const allAnswered = (room) => [...room.players.values()].every((p) => p.answer !== null || !p.socketId);
+// Un joueur en cours de reconnexion dispose d'un court délai pour terminer sa réponse.
+function finishIfAnswered(room) {
+  if (room.state !== "answering" || !answerCount(room)) return;
+  const now = Date.now();
+  if ([...room.players.values()].every((p) => p.answer !== null || (!p.socketId && p.waitUntil <= now))) stopAnswers(room);
+}
 
 // fin anticipée du chrono : tout le monde a répondu, ou le présentateur l'arrête
 function stopAnswers(room) {
@@ -215,15 +264,18 @@ function stopAnswers(room) {
 
 function reveal(room, clip) {
   room.state = "reveal";
-  room.answering = false;
+  room.revealStartedAt = Date.now();
   const ranking = [...room.players.values()]
     .map((p) => {
       const pts = score(p.answer, clip.answer);
       p.score += pts;
+      p.points = pts;
       return { name: p.name, text: p.answer || "", points: pts };
     })
     .sort((a, b) => b.points - a.points);
-  io.to(room.code).emit("reveal", { answer: clip.answer, film: clip.film, title: clip.title, ranking, last: room.round + 1 >= room.songs.length });
+  room.reveal = { answer: clip.answer, film: clip.film, title: clip.title, ranking, last: room.round + 1 >= room.songs.length };
+  io.to(room.code).emit("reveal", room.reveal);
+  pushPlayerResults(room);
   broadcastPlayers(room);
   pushRemote(room);
   // la manche suivante attend le présentateur (télécommande /remote.html ou bouton de l'écran)
@@ -236,7 +288,12 @@ function nextRound(room) {
   if (room.round >= room.songs.length) {
     room.round = room.songs.length - 1;
     room.state = "over";
-    io.to(room.code).emit("game:over", [...room.players.values()].map((p) => ({ name: p.name, score: p.score })).sort((a, b) => b.score - a.score));
+    room.final = [...room.players.values()].sort((a, b) => b.score - a.score).map((p, index) => {
+      p.rank = index + 1;
+      return { name: p.name, score: p.score };
+    });
+    io.to(room.code).emit("game:over", room.final);
+    pushPlayerResults(room);
     pushRemote(room);
   } else {
     startRound(room);
@@ -244,147 +301,250 @@ function nextRound(room) {
 }
 
 // télécommande du présentateur : état de la partie
-function pushRemote(room) {
+function remoteState(room) {
   const clip = room.songs[room.round];
-  io.to(room.code + ":remote").emit("remote:state", {
+  return {
     state: room.state, round: room.round + 1, total: room.songs.length,
     title: clip?.title || "", film: clip?.film || "",
-    players: room.players.size, answers: [...room.players.values()].filter((p) => p.answer !== null).length,
+    players: room.players.size, connected: connectedPlayers(room), answers: answerCount(room), hostOnline: Boolean(room.hostId),
     answer: room.state === "reveal" ? clip?.answer || "" : null,
-  });
+  };
+}
+
+const pushRemote = (room) => io.to(room.code + ":remote").emit("remote:state", remoteState(room));
+
+function hostState(room) {
+  const now = Date.now();
+  const state = { ...room.invite, ok: true, state: room.state, players: playerList(room) };
+  if (room.state !== "lobby") state.intro = room.intro;
+  if (room.state === "playing" || room.state === "answering") {
+    state.clip = { ...room.clip, elapsed: (now - room.clipStartedAt) / 1000 };
+  }
+  if (room.state === "answering") {
+    state.answerWindow = { ...room.answerWindow, elapsed: (now - room.answerStartedAt) / 1000 };
+    state.answers = answerCount(room);
+  }
+  if (room.state === "reveal") {
+    state.reveal = { ...room.reveal, elapsed: (now - room.revealStartedAt) / 1000, audio: room.clip.audio, revealAt: room.clip.revealAt };
+  }
+  if (room.state === "over") state.final = room.final;
+  return state;
+}
+
+function inviteBase(origin) {
+  for (const candidate of [process.env.PUBLIC_URL, origin]) {
+    try {
+      const url = new URL(candidate);
+      if (["http:", "https:"].includes(url.protocol) && !["localhost", "127.0.0.1", "0.0.0.0", "[::]", "[::1]"].includes(url.hostname)) return url.origin;
+    } catch {}
+  }
+  return `http://${lanAddress()}:${PORT}`;
+}
+
+function attachHost(room, socket) {
+  const previous = io.sockets.sockets.get(room.hostId);
+  if (previous && previous !== socket) {
+    previous.leave(room.code);
+    previous.emit("host:replaced");
+  }
+  clearTimeout(room.hostExpiry);
+  room.hostId = socket.id;
+  socket.join(room.code);
+  Object.assign(socket.data, { code: room.code, role: "host" });
+}
+
+function attachPlayer(room, player, socket) {
+  const previous = io.sockets.sockets.get(player.socketId);
+  if (previous && previous !== socket) {
+    previous.leave(room.code);
+    previous.emit("player:replaced");
+  }
+  clearTimeout(player.disconnectTimer);
+  player.waitUntil = 0;
+  player.socketId = socket.id;
+  socket.join(room.code);
+  Object.assign(socket.data, { code: room.code, role: "player", token: player.token });
 }
 
 io.on("connection", (socket) => {
-  socket.on("host:create", ({ listId = 'disney', rounds = ROUNDS, answerSeconds } = {}) => {
-    if (socket.data.code) return;
+  let remoteSession;
+  function onRequest(event, handle) {
+    socket.on(event, (input, ack) => {
+      if (typeof input === "function") handle({}, input);
+      else handle(input || {}, typeof ack === "function" ? ack : undefined);
+    });
+  }
+
+  onRequest("host:create", async ({ listId = 'disney', rounds = ROUNDS, answerSeconds, token, origin }, ack) => {
+    if (socket.data.role === "player") return;
+    const existing = rooms.get(socket.data.code);
+    if (existing?.hostId === socket.id) {
+      if (existing.hostToken !== token) return ack?.({ ok: false, error: "Un salon est déjà ouvert sur cet écran." });
+      await existing.inviteReady;
+      if (existing.hostId === socket.id && socket.connected) ack?.(hostState(existing));
+      return;
+    }
+    if (validToken(token) && hostSessions.has(token)) return ack?.({ ok: false, retry: true });
     const total = Number.isInteger(rounds) && rounds >= 1 && rounds <= 200 ? rounds : ROUNDS; // limité ensuite aux chansons de la liste
     const answerMs = [5, 10, 15, 20, 30, 60].includes(answerSeconds) ? answerSeconds * 1000 : ANSWER_MS;
     const songs = pick(total, library.clips(listId));
-    if (!songs.length) return socket.emit('host:error', 'Ajoutez au moins une chanson à cette liste.');
+    if (!songs.length) {
+      const error = 'Ajoutez au moins une chanson à cette liste.';
+      if (ack) return ack({ ok: false, error });
+      return socket.emit('host:error', error);
+    }
     const code = code4();
-    const room = { code, hostId: socket.id, players: new Map(), state: "lobby", round: 0, songs, timers: [], answering: false, answerMs };
-    rooms.set(code, room);
-    socket.join(code);
-    socket.data.code = code;
-    socket.data.role = "host";
-    // en ligne, PUBLIC_URL donne l'adresse publique (https://…) ; à la maison, l'adresse Wi-Fi du PC
-    const base = (process.env.PUBLIC_URL || `http://${lanAddress()}:${PORT}`).replace(/\/+$/, '');
+    const hostToken = validToken(token) ? token : randomUUID();
+    const base = inviteBase(origin);
     const joinUrl = `${base}/play.html?code=${code}`;
     const remote = { url: `${base}/remote.html?code=${code}` };
-    QRCode.toDataURL(joinUrl, { margin: 1, width: 240 }).then((qr) => {
-      socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, qr, remote });
-    }).catch(() => socket.emit("host:created", { code, listId, rounds: songs.length, joinUrl, remote }));
+    const list = library.get().lists.find((entry) => entry.id === listId);
+    const invite = { code, listId, list: list && { name: list.name, theme: list.theme, coverImage: list.coverImage }, rounds: songs.length, joinUrl, remote };
+    const room = { code, hostToken, invite, players: new Map(), state: "lobby", round: 0, songs, timers: [], answerMs };
+    rooms.set(code, room);
+    hostSessions.set(hostToken, room);
+    attachHost(room, socket);
+    room.inviteReady = QRCode.toDataURL(joinUrl, { margin: 4, width: 260 }).then((qr) => { invite.qr = qr; }).catch(() => {});
+    await room.inviteReady;
+    if (room.hostId !== socket.id || !socket.connected) return;
+    if (ack) ack(hostState(room));
+    else socket.emit("host:created", invite);
   });
 
-  socket.on('host:leave', () => {
+  onRequest("host:resume", async ({ token }, ack = () => {}) => {
+    const room = hostSessions.get(token);
+    if (!room || (socket.data.code && socket.data.code !== room.code) || socket.data.role === "player") return ack({ ok: false });
+    attachHost(room, socket);
+    await room.inviteReady;
+    if (room.hostId !== socket.id || !socket.connected) return;
+    ack(hostState(room));
+    pushRemote(room);
+  });
+
+  onRequest('host:leave', (_input, ack) => {
     const room = rooms.get(socket.data.code);
-    if (!room || room.hostId !== socket.id) return;
-    clearTimers(room);
-    socket.to(room.code).emit('room:closed');
-    io.to(room.code + ':remote').emit('remote:closed');
-    io.in(room.code).socketsLeave(room.code);
-    rooms.delete(room.code);
+    if (!room || room.hostId !== socket.id) return ack?.({ ok: false });
+    socket.leave(room.code);
+    closeRoom(room);
     delete socket.data.code;
+    delete socket.data.role;
+    ack?.({ ok: true });
   });
 
-  socket.on("player:join", ({ code, name } = {}, ack = () => {}) => {
-    const room = rooms.get(String(code || "").toUpperCase());
+  onRequest("player:join", ({ code, name, token }, ack = () => {}) => {
+    const room = findRoom(code);
     if (!room) return ack({ ok: false, error: "Ce salon n'existe pas. Vérifiez le code." });
-    if (room.state !== "lobby") return ack({ ok: false, error: "La partie a déjà commencé." });
-    const clean = String(name || "").trim().slice(0, 16);
+    const current = room.players.get(socket.data.token);
+    const existing = validToken(token) ? room.players.get(token) : null;
+    if (socket.data.role === "host" || (rooms.has(socket.data.code) && (socket.data.code !== room.code || (existing && existing !== current)))) {
+      return ack({ ok: false, error: "Cette connexion est déjà utilisée dans un salon." });
+    }
+    const returning = existing || (current?.socketId === socket.id ? current : null);
+    if (returning) {
+      attachPlayer(room, returning, socket);
+      ack({ ...playerState(room, returning), token: returning.token });
+      broadcastPlayers(room);
+      pushRemote(room);
+      return;
+    }
+    if (room.state === "over") return ack({ ok: false, error: "Cette partie est terminée. Demandez le code du prochain salon." });
+    const clean = typeof name === "string" ? name.trim().slice(0, 16) : "";
     if (!clean) return ack({ ok: false, error: "Entrez un pseudo." });
-    // le jeton identifie le joueur même si son téléphone change de connexion (rechargement, Wi-Fi)
-    const token = randomUUID();
-    room.players.set(token, { token, socketId: socket.id, name: clean, score: 0, answer: null });
-    socket.join(room.code);
-    socket.data.code = room.code;
-    socket.data.role = "player";
-    socket.data.token = token;
-    ack({ ok: true, code: room.code, token });
+    const player = { token: validToken(token) ? token : randomUUID(), name: clean, score: 0, answer: null, points: 0 };
+    room.players.set(player.token, player);
+    attachPlayer(room, player, socket);
+    ack({ ...playerState(room, player), token: player.token });
     broadcastPlayers(room);
     pushRemote(room);
   });
 
   // reprise d'une session joueur après rechargement ou coupure réseau
-  socket.on("player:resume", ({ code, token } = {}, ack = () => {}) => {
-    const room = rooms.get(String(code || "").toUpperCase());
+  onRequest("player:resume", ({ code, token }, ack = () => {}) => {
+    const room = findRoom(code);
     const p = room && typeof token === "string" ? room.players.get(token) : null;
-    if (!p) return ack({ ok: false });
-    p.socketId = socket.id;
-    socket.join(room.code);
-    socket.data.code = room.code;
-    socket.data.role = "player";
-    socket.data.token = token;
-    ack({
-      ok: true,
-      name: p.name,
-      state: room.state,
-      answering: room.answering,
-      answered: p.answer !== null,
-      round: room.round + 1,
-      total: room.songs.length,
-      score: p.score,
-    });
+    if (!p || socket.data.role === "host" || (rooms.has(socket.data.code) && (socket.data.code !== room.code || socket.data.token !== token))) return ack({ ok: false });
+    attachPlayer(room, p, socket);
+    ack(playerState(room, p));
     broadcastPlayers(room);
+    pushRemote(room);
   });
 
   socket.on("host:start", () => {
     const room = rooms.get(socket.data.code);
     if (!room || room.hostId !== socket.id || room.state !== "lobby") return;
-    if (room.players.size < 1) return;
+    if (!connectedPlayers(room)) return;
     room.round = 0;
     startRound(room);
   });
-  socket.on("host:next", () => {
+  onRequest("host:next", ({ round }) => {
     const room = rooms.get(socket.data.code);
-    if (room && room.hostId === socket.id) nextRound(room);
+    if (room && room.hostId === socket.id && (round === undefined || round === room.round + 1)) nextRound(room);
   });
 
   // télécommande du présentateur : le code du salon suffit
-  socket.on("remote:join", ({ code } = {}, ack = () => {}) => {
-    const room = rooms.get(String(code || "").trim().toUpperCase());
+  onRequest("remote:join", ({ code }, ack = () => {}) => {
+    const room = findRoom(code);
     if (!room) return ack({ ok: false, error: "Aucun salon avec ce code." });
-    socket.data.remote = room.code;
+    if (remoteSession) socket.leave(remoteSession.code + ":remote");
+    remoteSession = { code: room.code, hostToken: room.hostToken };
     socket.join(room.code + ":remote");
-    ack({ ok: true, code: room.code });
+    ack({ ok: true, code: room.code, state: remoteState(room) });
     pushRemote(room);
   });
-  const remoteRoom = () => rooms.get(socket.data.remote) || null;
-  socket.on("remote:start", () => {
-    const room = remoteRoom();
-    if (!room || room.state !== "lobby" || room.players.size < 1) return;
-    io.to(room.hostId).emit("remote:start"); // c'est l'écran qui lance (il doit pouvoir jouer le son)
-  });
-  socket.on("remote:next", () => { const room = remoteRoom(); if (room) nextRound(room); });
-  socket.on("remote:stop", () => { const room = remoteRoom(); if (room) stopAnswers(room); });
+  function remoteAction(event, state, run) {
+    onRequest(event, ({ round }, ack = () => {}) => {
+      const room = rooms.get(remoteSession?.code);
+      if (!room || room.hostToken !== remoteSession.hostToken) return ack({ ok: false });
+      if (!room.hostId || room.state !== state || (round !== undefined && round !== room.round + 1)) {
+        return ack({ ok: false, state: remoteState(room) });
+      }
+      run(room);
+      ack({ ok: true, state: remoteState(room) });
+    });
+  }
+  remoteAction("remote:start", "lobby", (room) => { if (connectedPlayers(room)) tellHost(room, "remote:start"); });
+  remoteAction("remote:next", "reveal", nextRound);
+  remoteAction("remote:stop", "answering", stopAnswers);
 
-  socket.on("player:answer", ({ text } = {}, ack = () => {}) => {
+  onRequest("player:answer", ({ text, round }, ack = () => {}) => {
     const room = rooms.get(socket.data.code);
     const p = room?.players.get(socket.data.token);
-    if (!room || !p || !room.answering) return ack({ ok: false });
-    p.answer = String(text || "").slice(0, 120);
-    ack({ ok: true });
-    const answered = [...room.players.values()].filter((x) => x.answer !== null).length;
-    io.to(room.hostId).emit("answers:count", answered);
+    if (!p || p.socketId !== socket.id) return ack({ ok: false });
+    const answer = typeof text === "string" ? text.trim().slice(0, 120) : "";
+    if (room.state !== "answering" || (round !== undefined && round !== room.round + 1) || !answer) {
+      return ack({ ok: false, state: playerState(room, p) });
+    }
+    if (p.answer !== null) return ack({ ok: true, state: playerState(room, p) });
+    p.answer = answer;
+    ack({ ok: true, state: playerState(room, p) });
+    tellHost(room, "answers:count", answerCount(room));
     pushRemote(room);
-    if (allAnswered(room)) stopAnswers(room);
+    finishIfAnswered(room);
   });
 
   socket.on("disconnect", () => {
     const room = rooms.get(socket.data.code);
     if (!room) return;
-    if (socket.data.role === "host") {
-      clearTimers(room);
-      io.to(room.code).emit("room:closed");
-      io.to(room.code + ":remote").emit("remote:closed");
-      rooms.delete(room.code);
+    if (room.hostId === socket.id) {
+      room.hostId = null;
+      pushRemote(room);
+      room.hostExpiry = setTimeout(() => closeRoom(room), HOST_GRACE_MS);
+      room.hostExpiry.unref();
+      return;
     }
     // un joueur déconnecté garde sa place et son score : il peut reprendre avec player:resume
     const p = room.players.get(socket.data.token);
     if (p && p.socketId === socket.id) {
       p.socketId = null;
+      if (["intro", "playing", "answering"].includes(room.state) && p.answer === null) {
+        p.waitUntil = Date.now() + PLAYER_GRACE_MS;
+        p.disconnectTimer = setTimeout(() => {
+          if (rooms.get(room.code) === room) finishIfAnswered(room);
+        }, PLAYER_GRACE_MS);
+      }
       broadcastPlayers(room);
-      if (room.state === "answering" && allAnswered(room)) stopAnswers(room);
+      pushRemote(room);
+      finishIfAnswered(room);
     }
   });
 });
