@@ -81,6 +81,7 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
   <div class="notice" id="notice" role="status" hidden></div>
   <div class="stage-connection" id="stage-connection" role="status" hidden></div>
   <button class="quiet stage-audio" id="resume-audio" type="button" hidden>Relancer le son</button>
+  <div class="solo-test" id="solo-test" hidden><span>Test seul</span><button class="quiet" id="replay-test" type="button">Rejouer</button><button class="quiet" id="stop-test" type="button">Quitter le test</button></div>
   <details class="live-join" id="live-join" hidden>
     <summary>Rejoindre · <span id="live-code"></span></summary>
     <div class="live-join-panel"><img id="live-qr" alt="QR code pour rejoindre le salon" width="180" height="180"><a id="live-link" target="_blank" rel="noopener">Ouvrir le lien joueurs</a></div>
@@ -198,7 +199,7 @@ function show(id) {
   if (id !== "s-play" && id !== "s-reveal") { audio.pause(); setStageVolume(1); }
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
   const join = $("live-join");
-  join.hidden = !["s-intro", "s-play", "s-reveal"].includes(id);
+  join.hidden = Boolean(soloTest) || !["s-intro", "s-play", "s-reveal"].includes(id); // pas de salon pendant un test seul
   if (!join.hidden) $(id).querySelector(".top").append(join);
   if (id !== "s-play" && id !== "s-reveal") $("resume-audio").hidden = true;
   background.screen(id);
@@ -243,7 +244,10 @@ $("start").onclick = () => {
   socket.emit("host:start");
 };
 // la manche suivante attend le présentateur : ce bouton, la touche → ou la télécommande (/remote.html)
-$("next").onclick = () => { if (socket.connected) socket.emit("host:next", { round: hostRound }); };
+$("next").onclick = () => {
+  if (soloTest) return soloTest.next(); // test d'une chanson seule : pas de salon sur le serveur
+  if (socket.connected) socket.emit("host:next", { round: hostRound });
+};
 document.addEventListener("keydown", (e) => { if ($("s-reveal").classList.contains("on") && !$("next").disabled && (e.key === "ArrowRight" || e.key === "PageDown")) $("next").click(); });
 socket.on("remote:start", () => { if (!$("start").disabled) $("start").click(); });
 

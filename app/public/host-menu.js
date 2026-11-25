@@ -101,7 +101,11 @@ function renderPicker() {
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = selectedSongs.has(song.id);
     input.onchange = () => { input.checked ? selectedSongs.add(song.id) : selectedSongs.delete(song.id); updateCount(); if ($('selected-only').checked) renderPicker();
       else $('select-visible').disabled = !songs.some((song) => !selectedSongs.has(song.id)); };
-    const text = node('span', '', song.title); text.append(node('small', '', song.film)); const memberships = library.lists.filter(l => l.songIds.includes(song.id)); if (memberships.length) text.append(node('small', 'membership-tags', memberships.map(l => l.name).join(' · ')));  label.append(input, text); $('song-picker').append(label);
+    const text = node('span', '', song.title); text.append(node('small', '', song.film)); const memberships = library.lists.filter(l => l.songIds.includes(song.id)); if (memberships.length) text.append(node('small', 'membership-tags', memberships.map(l => l.name).join(' · ')));  label.append(input, text);
+    const test = node('button', 'quiet test-song', '▶ Tester'); test.type = 'button';
+    test.setAttribute('aria-label', 'Tester « ' + song.title + ' » seul, sans salon');
+    test.onclick = (event) => { event.preventDefault(); startSoloTest(song); };
+    label.append(test); $('song-picker').append(label);
   });
   if (!songs.length) $('song-picker').append(node('p', 'empty', 'Aucune chanson trouvée.'));
   updateCount();
@@ -317,3 +321,71 @@ $('list-cover').onchange = async () => {
  finally { bitmap?.close(); if(revision===coverRevision)$('save-list').disabled=false; }
 };
 
+
+// Test d'une chanson seule depuis la bibliothèque : l'écran la joue comme en partie
+// (présentation, paroles, coupure, chrono, révélation), sans salon ni joueur.
+const SOLO_ANSWER_S = 5;
+let soloTest = null;
+async function startSoloTest(song) {
+  if (soloTest) return;
+  if (hostSession) return notify('Fermez le salon en cours avant de tester une chanson.');
+  $('notice').hidden = true;
+  // le clic autorise la lecture audio sur cette page
+  unlockStageAudio()?.catch(() => {});
+  audio.play().catch(() => {});
+  audio.pause();
+  let data;
+  try {
+    const res = await fetch('/api/test-song?' + new URLSearchParams({ id: song.id }));
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Impossible de tester cette chanson.');
+  } catch (error) { return notify(error.message || 'Impossible de tester cette chanson.'); }
+  roomCover = coverSource($('list-theme').value, draftCover);
+  soloTest = { data, index: 0, timers: [], next: () => playSoloPassage(soloTest.index + 1) };
+  $('solo-test').hidden = false;
+  document.querySelector('.hint-next').hidden = true; // pas de télécommande sans salon
+  playSoloPassage(0);
+}
+function playSoloPassage(index) {
+  const test = soloTest;
+  if (!test) return;
+  test.timers.forEach(clearTimeout);
+  test.timers = [];
+  clearInterval(answerTimer);
+  const passages = test.data.passages;
+  if (index >= passages.length) return stopSoloTest();
+  test.index = index;
+  const { film, title, answer, clip: c } = passages[index];
+  const last = index + 1 >= passages.length;
+  const later = (seconds, run) => test.timers.push(setTimeout(() => { if (soloTest === test) run(); }, seconds * 1000));
+  renderIntro({ round: index + 1, total: passages.length, film, title });
+  // mêmes délais que le serveur pendant une partie : présentation, puis chrono ouvert à la coupure
+  later(test.data.introMs / 1000, () => {
+    renderClip({ ...c, elapsed: 0 });
+    $('bar-msg').textContent = 'Test seul · aucun joueur';
+    $('answers').textContent = '';
+    const music = Math.max(0, c.bedEnd - c.cutAt);
+    later(c.cutAt, () => {
+      renderAnswerWindow({ seconds: music + SOLO_ANSWER_S, music, timer: SOLO_ANSWER_S });
+      $('answers').textContent = '';
+      later(music + SOLO_ANSWER_S, () => {
+        renderReveal({ answer, film, title, ranking: [], last, revealAt: c.revealAt });
+        $('rev-ranking').replaceChildren(node('div', 'msg', 'Test seul : aucun joueur.'));
+        $('next').textContent = last ? 'Fin du test →' : 'Passage suivant →';
+      });
+    });
+  });
+}
+function stopSoloTest() {
+  if (!soloTest) return;
+  soloTest.timers.forEach(clearTimeout);
+  clearInterval(answerTimer);
+  soloTest = null;
+  roomCover = null;
+  $('solo-test').hidden = true;
+  document.querySelector('.hint-next').hidden = false;
+  show('s-library'); // la liste en cours de modification reste telle quelle
+}
+$('replay-test').onclick = () => { if (soloTest) playSoloPassage(soloTest.index); };
+$('stop-test').onclick = stopSoloTest;
+document.addEventListener('keydown', (event) => { if (soloTest && event.key === 'Escape') stopSoloTest(); });

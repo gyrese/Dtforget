@@ -55,6 +55,14 @@ const publisher = createPublisher({ content: CONTENT, contentFile: CONTENT_FILE,
 app.use('/api/import', publisher.importer); // avant le parseur JSON général : corps audio brut et listes volumineuses
 app.use(express.json({ limit: '1mb' }));
 app.get('/api/library', (_req, res) => res.json(library.get()));
+// test d'une chanson seule depuis la bibliothèque : chaque passage tel que l'écran le jouerait, réponse comprise
+app.get('/api/test-song', (req, res) => {
+  const passages = CONTENT.filter((clip) => songKey(clip) === req.query.id);
+  if (!passages.length) return res.status(404).json({ error: 'Cette chanson n’est plus dans la bibliothèque.' });
+  res.json({ introMs: INTRO_MS, passages: passages.map((clip) => ({
+    film: clip.film, title: clip.title, answer: clip.answer, clip: screenClip(clip),
+  })) });
+});
 for (const method of ['post', 'put']) app[method](method === 'post' ? '/api/lists' : '/api/lists/:id', (req, res) => {
   try { res.json(library.save(req.params.id, req.body)); }
   catch (error) { res.status(400).json({ error: error.message }); }
@@ -219,21 +227,25 @@ function startRound(room) {
     room.state = "playing";
     room.clipStartedAt = Date.now();
     pushRemote(room);
-    room.clip = {
-      audio: clip.audio,
-      background: clip.background,
-      cutAt: clip.cutAt,
-      bedEnd: bedEnd(clip), // l'instrumental s'arrête ici, le chrono prend le relais
-      revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
-      // le mot à trouver n'est jamais envoyé à l'écran : seulement sa place
-      // mot à trouver : un tiret bas par lettre (ponctuation retirée), le texte n'est jamais envoyé
-      // rien après le trou : la suite n'est plus chantée pendant la manche
-      words: clip.words.slice(0, lastGap(clip) + 1).map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
-      answerLength: clip.answer.split(" ").length,
-    };
+    room.clip = screenClip(clip);
     tellHost(room, "round:clip", room.clip);
     room.timers.push(setTimeout(() => openAnswer(room, clip), clip.cutAt * 1000));
   }, INTRO_MS));
+}
+
+// ce que l'écran reçoit d'un extrait pendant la manche
+function screenClip(clip) {
+  return {
+    audio: clip.audio,
+    background: clip.background,
+    cutAt: clip.cutAt,
+    bedEnd: bedEnd(clip), // l'instrumental s'arrête ici, le chrono prend le relais
+    revealAt: clip.revealAt ?? null, // même fichier : la reprise chantée commence ici
+    // mot à trouver : un tiret bas par lettre (ponctuation retirée), le texte n'est jamais envoyé
+    // rien après le trou : la suite n'est plus chantée pendant la manche
+    words: clip.words.slice(0, lastGap(clip) + 1).map((w) => (w.gap ? { ...w, x: w.x.replace(/[\p{L}\p{N}]/gu, "_") } : w)),
+    answerLength: clip.answer.split(" ").length,
+  };
 }
 
 function openAnswer(room, clip) {
