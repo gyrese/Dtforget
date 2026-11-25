@@ -131,6 +131,26 @@ audio{width:100%;margin-top:18px}
 .cut-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
 .cut-row b{color:var(--ink);font:700 13px var(--f-mono);min-width:64px;text-align:center}
 .cut-row .quiet{padding:6px 10px}
+/* Réglages simples : trois questions à l'oreille */
+.quick{display:grid;gap:12px}
+.q{display:grid;gap:10px;padding:14px 16px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--deck-2)}
+.q-head{display:flex;gap:12px;align-items:flex-start}
+.q-n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--spot);color:var(--on-spot);display:grid;place-items:center;font-weight:900;font-size:14px}
+.q-head b{display:block;font-size:16px;color:var(--ink)}
+.q-head small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.q .row{margin:0;gap:8px}
+.q .quiet{min-height:40px;padding:6px 14px}
+.q-context{margin:0;color:var(--muted);font-size:14px}.q-context i{color:var(--ink)}
+.q-tap{min-width:11em}.q-tap:not(:disabled){animation:q-pulse 1s ease-in-out infinite}
+@keyframes q-pulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--red) 30%,transparent)}}
+@media (prefers-reduced-motion:reduce){.q-tap:not(:disabled){animation:none}}
+.q-len{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:center;font-size:14px}
+.q-len .chip{min-height:36px}
+.q-val{font:700 14px var(--f-mono);color:var(--led)}
+kbd{font:700 12px var(--f-mono);border:1px solid var(--rule-strong);border-bottom-width:2px;border-radius:4px;padding:0 5px}
+.expert{margin-top:16px;border-top:1px solid var(--rule);padding-top:12px}
+.expert>summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:14px}
+.expert[open]>summary{margin-bottom:14px}
 .sync-panel{display:grid;gap:10px;padding:14px 16px;margin:0 0 18px;border:1px solid var(--rule-strong);border-radius:var(--r-md);background:var(--deck-2)}
 .sync-panel .sync-title{font-size:16px;font-weight:800;color:var(--ink)}
 .sync-panel .sync-value{font:700 16px var(--f-mono);color:var(--led)}
@@ -218,7 +238,7 @@ audio{width:100%;margin-top:18px}
   <section id="v-lyrics" hidden>
     <div class="lyrics-head"><div><h2>Sélectionnez le passage à deviner.</h2><p class="lead" style="margin:0">Cliquez sur le premier mot, puis sur le dernier. La voix sera retirée sur ce passage et l’extrait s’arrêtera 5 secondes après.</p></div><button class="quiet" id="change-lyrics">Ce ne sont pas les bonnes paroles</button></div>
     <p class="eyebrow" id="lyrics-source" style="margin:0 0 8px"></p>
-    <details id="lyrics-sync-box" hidden><summary class="quiet">Recaler les paroles</summary><div id="lyrics-sync"></div></details>
+    <details id="lyrics-sync-box" hidden><summary class="quiet">Les paroles sont décalées ?</summary><div id="lyrics-sync"></div></details>
     <div class="lyrics" id="lyrics"></div>
   </section>
 
@@ -232,7 +252,10 @@ audio{width:100%;margin-top:18px}
     </div>
 
     <div class="montage" id="trim" hidden>
-      <div class="mt-top"><h3>Table de montage</h3><span class="note">Cliquez sur la forme d’onde pour écouter la chanson à cet endroit. Glissez les poignées pour régler l’extrait.</span></div>
+      <div class="mt-top"><h3>Réglages</h3><span class="note" id="quick-save" role="status">Chaque réponse est enregistrée toute seule.</span></div>
+      <div id="trim-quick"></div>
+      <details class="expert" id="trim-expert"><summary>Mode expert · table de montage</summary>
+      <p class="note" style="margin:0 0 12px">Cliquez sur la forme d’onde pour écouter la chanson à cet endroit. Glissez les poignées pour régler l’extrait.</p>
       <div id="trim-sync"></div>
       <div class="mt-over" id="mt-over" title="La chanson entière"><canvas id="mt-over-wave"></canvas><div class="mt-over-win" id="mt-over-win"></div><div class="mt-over-gap" id="mt-over-gap"></div><div class="mt-over-head" id="mt-over-head" hidden></div>
         <button type="button" class="mt-over-h" id="trim-h0o" tabindex="-1" aria-hidden="true"></button><button type="button" class="mt-over-h" id="trim-h1o" tabindex="-1" aria-hidden="true"></button></div>
@@ -259,6 +282,7 @@ audio{width:100%;margin-top:18px}
         <div class="mt-cell"><small>Durée</small><b id="trim-len"></b></div>
       </div>
       <div class="row" style="margin-top:14px"><button class="quiet" id="trim-reset" type="button">Bornes et coupure automatiques</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Appliquer à l’extrait</button></div>
+      </details>
     </div>
 
     <div class="row"><button class="quiet" id="another-gap">Choisir un autre passage</button><a class="quiet" href="/atelier.html#bibliotheque">Bibliothèque</a><a class="quiet" href="/atelier.html">Ajouter une autre chanson</a><span class="grow"></span><button class="quiet" id="publish-one" hidden>Envoyer en ligne ↑</button><a class="btn" href="/host.html">Retour au jeu →</a></div><p class="note" id="publish-one-status" role="status" style="margin-top:14px"></p>
@@ -289,17 +313,12 @@ audio{width:100%;margin-top:18px}
   <form method="dialog" id="edit-form">
     <h2>Modifier la chanson</h2>
     <p class="note" id="edit-answer" style="margin:0 0 16px"></p>
-    <div id="edit-sync" hidden></div>
+    <div id="edit-quick" hidden style="margin-bottom:16px"></div>
     <div class="fields" style="margin-top:0"><label>Titre de la chanson<input type="text" id="edit-title" maxlength="80" required autocomplete="off"></label><label>Artiste ou film<input type="text" id="edit-film" maxlength="80" required autocomplete="off"></label></div>
     <label>Paroles à l’écran
       <textarea id="edit-lyrics" spellcheck="false" rows="8" style="font-size:14px;line-height:1.5"></textarea>
       <small class="note">Une ligne ici = une ligne à l’écran : passez à la ligne où vous voulez couper. Vous pouvez corriger l’orthographe, mais gardez le même nombre de mots (chaque mot garde son moment dans la chanson). Les mots à deviner sont entre crochets.</small>
     </label>
-    <div class="cut-row" id="edit-cut" role="group" aria-label="Fin de la voix avant le trou" style="margin:0 0 16px"><span>Fin de la voix avant le trou</span>
-      <button class="quiet" type="button" data-ecut="-0.5">− 0,5 s</button><button class="quiet" type="button" data-ecut="-0.1">− 0,1 s</button>
-      <b id="edit-cut-shift">0,0 s</b>
-      <button class="quiet" type="button" data-ecut="0.1">+ 0,1 s</button><button class="quiet" type="button" data-ecut="0.5">+ 0,5 s</button>
-      <button class="quiet" type="button" id="edit-cut-hear">▶ Écouter</button></div>
     <fieldset class="checks" id="edit-lists"><legend>Listes</legend></fieldset>
     <label>Fond en jeu
       <select id="edit-bg">
@@ -316,6 +335,30 @@ audio{width:100%;margin-top:18px}
     <div class="row" style="margin-top:8px"><a class="quiet" id="edit-passage" href="#">Changer le passage ou les paroles</a><span class="grow"></span><button class="quiet" value="cancel" formnovalidate>Annuler</button><button class="btn" id="edit-save" value="save">Enregistrer</button></div>
   </form>
 </dialog>
+
+<template id="quick-template">
+  <div class="quick">
+    <section class="q" data-q="tap">
+      <div class="q-head"><span class="q-n">1</span><div><b>Le bon moment</b><small>Lancez l’écoute, puis appuyez sur <kbd>Espace</kbd> (ou sur le bouton) dès que vous entendez <q data-word></q>.</small></div></div>
+      <p class="q-context" data-context></p>
+      <div class="row"><button class="quiet" type="button" data-tap-play>▶ Écouter</button><button class="btn q-tap" type="button" data-tap disabled>Maintenant !</button><span class="note grow" data-tap-status role="status"></span></div>
+    </section>
+    <section class="q" data-q="cut">
+      <div class="q-head"><span class="q-n">2</span><div><b>La coupure de la voix</b><small>La voix doit s’arrêter juste avant <q data-word></q>, puis la musique continue seule.</small></div></div>
+      <div class="row"><button class="quiet" type="button" data-cut-hear>▶ Écouter la coupure</button>
+        <button class="quiet" type="button" data-cut="0.2" title="On perd la fin des paroles d’avant">Coupe trop tôt</button>
+        <button class="quiet" type="button" data-cut="-0.2" title="On entend déjà le début du mot à deviner">Coupe trop tard</button>
+        <span class="q-val" data-cut-val></span></div>
+    </section>
+    <section class="q" data-q="len">
+      <div class="q-head"><span class="q-n">3</span><div><b>Longueur de l’extrait</b><small>La musique avant le passage à deviner, et celle qui continue après.</small></div></div>
+      <div class="q-len">
+        <span>Avant</span><div class="chips" role="group" aria-label="Musique avant le passage"><button class="chip" type="button" data-before="15">Court · 15 s</button><button class="chip" type="button" data-before="30">Moyen · 30 s</button><button class="chip" type="button" data-before="55">Long · 55 s</button><span class="q-val" data-before-val></span></div>
+        <span>Après</span><div class="chips" role="group" aria-label="Musique après le passage"><button class="chip" type="button" data-after="3">3 s</button><button class="chip" type="button" data-after="5">5 s</button><button class="chip" type="button" data-after="8">8 s</button><span class="q-val" data-after-val></span></div>
+      </div>
+    </section>
+  </div>
+</template>
 
 <template id="sync-template">
   <div class="sync-panel" role="group" aria-label="Recaler les paroles">
@@ -545,11 +588,13 @@ let lyricTiming = null;
 function setLyricsSync(offset) {
   $('lyrics-sync-box').hidden = !sel || !state.duration;
   if ($('lyrics-sync-box').hidden) { lyricTiming = null; return; }
-  const timing = { id, duration: state.duration, from: state.words[sel[0]].t, to: state.words[sel[1]].e, word: state.words[sel[0]].x };
+  const timing = { id, duration: state.duration, from: state.words[sel[0]].t, to: state.words[sel[1]].e, word: state.words[sel[0]].x, context: contextOf(state.words, sel[0]) };
   timing.offset = clampOffset(timing, offset);
   lyricTiming = timing;
-  showSync($('lyrics-sync'), timing, paint);
+  showQuick($('lyrics-sync'), timing, { parts: ['tap'], onChange: paint });
 }
+// les quelques mots chantés juste avant le passage : on sait quand le mot à guetter arrive
+const contextOf = (words, first) => words.slice(Math.max(0, first - 6), first).map((w) => w.x).join(' ');
 async function showLyrics() {
   sel = null; anchor = null;
   $('lyrics-sync-box').open = false; setLyricsSync(0);
@@ -667,7 +712,13 @@ $('build').onclick = async () => {
 };
 
 function showDone() {
-  const clip = state.clips[state.clips.length - 1];
+  fillDone(state.clips[state.clips.length - 1]);
+  // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
+  if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
+  kind = 'analyze'; view('done', 4);
+  config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
+}
+function fillDone(clip) {
   const list = [...$('list').options].find((o) => o.value === clip.listId)?.text;
   $('done-title').textContent = state.title + ' · ' + state.artist;
   $('done-lead').textContent = clip.words + (clip.words > 1 ? ' mots' : ' mot') + ' à deviner, coupure à ' + fmt(clip.cutAt) + ' dans l’extrait.' + (list ? ' Ajouté à la liste « ' + list + ' ».' : '');
@@ -680,10 +731,6 @@ function showDone() {
   $('done-answer-text').textContent = answer; $('done-answer').hidden = !answer;
   showTrim(clip);
   doneParts = Number.isFinite(clip.bedEnd) && Number.isFinite(clip.revealAt) ? { bedEnd: clip.bedEnd, revealAt: clip.revealAt } : null;
-  // le remplacement est fait : un autre passage choisi ensuite s'ajoutera, sans rien remplacer
-  if (replaceId) { replaceId = null; history.replaceState(null, '', location.pathname + location.hash); }
-  kind = 'analyze'; view('done', 4);
-  config.then((c) => { if (c.app && c.publish) $('publish-one').click(); });
 }
 // le fichier contient la manche puis, après une seconde de silence, la reprise chantée de la révélation :
 // un seul bouton : la manche, qui s'arrête comme en jeu à la fin de la musique (la révélation chantée vient après les réponses)
@@ -721,7 +768,7 @@ const signedSeconds = (s) => (s > 0.005 ? '+' : s < -0.005 ? '−' : '') + Math.
 function makeTiming(media, clip, first, last, start, end) {
   const offset0 = clip.lyricsOffset ?? 0;
   return { id: media.id, duration: media.duration, from: media.words[first].t, to: media.words[last].e, word: media.words[first].x,
-    offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
+    context: contextOf(media.words, first), offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
 }
 function cutAtSource(t) {
   return clamp(t.cut0 + t.offset - t.offset0 + t.cutAdjustment, 0, Math.min(t.duration, t.to + t.offset));
@@ -855,8 +902,93 @@ function showSync(container, timing, onChange) {
   paint();
 }
 for (const event of ['play', 'pause']) player.addEventListener(event, () => {
-  for (const name of ['lyrics-sync', 'trim-sync', 'edit-sync']) $(name).syncPaint?.();
+  for (const name of ['lyrics-sync', 'trim-sync', 'trim-quick', 'edit-quick']) $(name)?.syncPaint?.();
 });
+
+/* Réglages simples : on écoute et on répond (le bon moment au tap, la coupure, la longueur) */
+const TAP_LAG = 0.15; // temps de réaction moyen entre le mot entendu et l'appui
+let tapTarget = null; // l'écoute « Le bon moment » en cours
+function endTap() { const t = tapTarget; tapTarget = null; t?.paint(); }
+player.addEventListener('playing', () => { if (tapTarget) tapTarget.live = true; });
+player.addEventListener('pause', () => { if (tapTarget?.live) endTap(); });
+document.addEventListener('keydown', (e) => {
+  if (!tapTarget || e.code !== 'Space' || e.target.matches('input,textarea,select')) return;
+  e.preventDefault(); spaceTapped = true; if (!e.repeat) tapTarget.tap();
+}, true);
+// la touche relâchée ne doit pas « cliquer » en plus le bouton qui a le focus
+let spaceTapped = false;
+document.addEventListener('keyup', (e) => { if (e.code === 'Space' && spaceTapped) { spaceTapped = false; e.preventDefault(); } }, true);
+// début de l'extrait mesuré depuis la coupure, fin depuis la fin du passage
+const beforeOf = (t) => { const b = extractBounds(t); return b.cut - b.start; };
+const afterOf = (t) => extractBounds(t).end - (t.to + t.offset);
+function showQuick(container, t, { parts = ['tap', 'cut', 'len'], onChange = () => {} } = {}) {
+  if (tapTarget) { stopSourcePreview(); endTap(); }
+  container.replaceChildren($('quick-template').content.cloneNode(true));
+  const q = (s) => container.querySelector(s), qa = (s) => [...container.querySelectorAll(s)];
+  for (const s of qa('[data-q]')) s.hidden = !parts.includes(s.dataset.q);
+  for (const w of qa('[data-word]')) w.textContent = t.word;
+  q('[data-context]').hidden = !t.context;
+  if (t.context) q('[data-context]').replaceChildren('Juste avant : ', el('i', '', '… ' + t.context), ' → « ' + t.word + ' »');
+  const tapBtn = q('[data-tap]'), playBtn = q('[data-tap-play]'), status = q('[data-tap-status]');
+  const changed = () => { paint(); onChange(); };
+  const hearCutAt = () => {
+    const cut = cutAtSource(t);
+    playSource(t.id, Math.max(0, cut - 3.5), Math.min(t.duration, cut + 2), null, parts.includes('cut') ? cut : null);
+  };
+  const tapper = {
+    live: false, paint: () => paint(),
+    tap() {
+      const at = player.currentTime - TAP_LAG;
+      tapTarget = null; stopSourcePreview();
+      t.offset = clampOffset(t, at - t.from);
+      status.textContent = 'Calé : « ' + t.word + ' » à ' + fmt1(t.from + t.offset) + '. Vérifiez à l’écoute, ou recommencez.';
+      changed();
+      // on réécoute aussitôt le résultat : comme en jeu si la coupure existe, sinon le passage chanté
+      const from = t.from + t.offset;
+      if (parts.includes('cut')) hearCutAt();
+      else playSource(t.id, Math.max(0, from - 3), Math.min(t.duration, t.to + t.offset + 1.5));
+    },
+  };
+  playBtn.onclick = () => {
+    if (tapTarget === tapper) { stopSourcePreview(); endTap(); return; }
+    const from = t.from + t.offset;
+    status.textContent = '';
+    playSource(t.id, Math.max(0, from - 10), Math.min(t.duration, t.to + t.offset + 8));
+    tapper.live = false; tapTarget = tapper; paint(); tapBtn.focus();
+  };
+  tapBtn.addEventListener('pointerdown', (e) => { if (tapTarget === tapper) { e.preventDefault(); tapper.tap(); } });
+  tapBtn.onclick = (e) => { if (e.detail === 0 && tapTarget === tapper) tapper.tap(); }; // Entrée au clavier
+  q('[data-cut-hear]').onclick = hearCutAt;
+  for (const b of qa('[data-cut]')) b.onclick = () => { nudgeCut(t, +b.dataset.cut); changed(); hearCutAt(); };
+  const shift = () => t.offset - t.offset0;
+  for (const b of qa('[data-before]')) b.onclick = () => {
+    const { cut, latestStart } = extractBounds(t);
+    t.start = clamp(cut - +b.dataset.before, 0, latestStart) - shift(); changed();
+  };
+  for (const b of qa('[data-after]')) b.onclick = () => {
+    const { earliestEnd } = extractBounds(t);
+    t.end = clamp(t.to + t.offset + +b.dataset.after, earliestEnd, t.duration) - shift(); changed();
+  };
+  const secs = (s) => Math.round(s) + ' s';
+  function paint() {
+    const tapping = tapTarget === tapper;
+    playBtn.textContent = tapping ? '■ Arrêter' : '▶ Écouter';
+    tapBtn.disabled = !tapping;
+    if (!parts.includes('cut')) return;
+    const adj = t.cutAdjustment;
+    q('[data-cut-val]').textContent = 'Coupure à ' + fmt1(cutAtSource(t)) + (Math.abs(adj) > 0.005 ? ' (' + signedSeconds(adj) + ')' : '');
+    if (!parts.includes('len')) return;
+    const before = beforeOf(t), after = afterOf(t);
+    let hit = false;
+    for (const b of qa('[data-before]')) { const on = Math.abs(before - b.dataset.before) < 2.5; hit ||= on; b.setAttribute('aria-pressed', on); }
+    q('[data-before-val]').textContent = hit ? '' : 'actuellement ' + secs(before);
+    hit = false;
+    for (const b of qa('[data-after]')) { const on = Math.abs(after - b.dataset.after) < 0.75; hit ||= on; b.setAttribute('aria-pressed', on); }
+    q('[data-after-val]').textContent = hit ? '' : 'actuellement ' + secs(after);
+  }
+  container.syncPaint = paint;
+  paint();
+}
 /* Table de montage : la chanson entière en aperçu, l'extrait en gros plan sur quatre pistes */
 const mt = { v0: 0, v1: 1, wave: null };
 const waves = {};
@@ -919,6 +1051,7 @@ function showTrim(clip) {
   if (!ok) return;
   Object.assign(trim, makeTiming(state, clip, clip.first, clip.last, clip.sourceStart, clip.sourceEnd), { clip, saving: false });
   showSync($('trim-sync'), trim, () => { fitView(); paintTrim(); });
+  showQuick($('trim-quick'), trim, { onChange: () => { fitView(); paintTrim(); scheduleSave(); } });
   $('trim-total').textContent = fmt(state.duration);
   $('trim-status').textContent = ''; delete $('trim-status').dataset.error;
   $('tc').textContent = fmt1(clip.sourceStart);
@@ -975,8 +1108,8 @@ function paintTrim() {
   $('mt-lyr').setAttribute('aria-valuemin', min); $('mt-lyr').setAttribute('aria-valuemax', max);
   $('mt-lyr').setAttribute('aria-valuenow', off);
   $('mt-lyr').setAttribute('aria-valuetext', signedSeconds(off));
-  $('trim-sync').syncPaint();
-  const changed = trim.offset !== trim.offset0 || Math.abs(start - trim.clip.sourceStart) > 0.05 || Math.abs(end - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
+  $('trim-sync').syncPaint(); $('trim-quick').syncPaint?.();
+  const changed = trimChanged();
   $('trim-apply').disabled = trim.saving || !changed;
   if (!$('trim-status').dataset.error) $('trim-status').textContent = changed ? 'Réglages modifiés : appliquez-les pour refabriquer l’extrait.' : '';
   tickHead();
@@ -1089,6 +1222,55 @@ function tickHead() {
 }
 for (const media of [player, doneAudio]) for (const ev of ['play', 'pause', 'seeked']) media.addEventListener(ev, tickHead);
 addEventListener('resize', () => { if (!$('v-done').hidden) paintTrim(); });
+function trimChanged() {
+  const { cut, start, end } = extractBounds(trim);
+  return trim.offset !== trim.offset0 || Math.abs(start - trim.clip.sourceStart) > 0.05 || Math.abs(end - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
+}
+$('trim-expert').addEventListener('toggle', () => { if ($('trim-expert').open) { fitView(); paintTrim(); } });
+// les réponses aux questions s'enregistrent seules : l'extrait est refait en arrière-plan, sans quitter la page
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  $('quick-save').textContent = 'Modifié…';
+  saveTimer = setTimeout(quickSave, 1200);
+}
+async function quickSave() {
+  // pas pendant qu'on guette le bon moment, ni pendant une fabrication : on réessaie juste après
+  if (tapTarget || trim.saving) { saveTimer = setTimeout(quickSave, 800); return; }
+  if (!trim.clip || !trimChanged()) { $('quick-save').textContent = 'Enregistré.'; return; }
+  const c = trim.clip, songId = id;
+  const want = { offset: trim.offset, ...extractBounds(trim) };
+  trim.saving = true; paintTrim();
+  $('quick-save').textContent = 'Mise à jour de l’extrait…';
+  try {
+    await post('/' + songId + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
+      lyricsOffset: want.offset, start: want.start, end: want.end, cut: want.cut });
+    let st;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 800));
+      st = await api('/' + songId);
+      if (st.status !== 'working') break;
+    }
+    if (id !== songId) return;
+    if (st.error) throw new Error(st.error);
+    while (tapTarget) await new Promise((r) => setTimeout(r, 300)); // ne pas couper une écoute « Le bon moment »
+    // ce qui a été touché pendant la fabrication est gardé et repart au prochain enregistrement
+    const now = { offset: trim.offset, ...extractBounds(trim) };
+    state = st; trim.saving = false;
+    fillDone(state.clips[state.clips.length - 1]);
+    const moved = ['offset', 'start', 'end', 'cut'].some((k) => Math.abs(now[k] - want[k]) > 0.05);
+    if (moved) { setAbsolute(trim, now); fitView(); paintTrim(); scheduleSave(); return; }
+    $('quick-save').textContent = 'Enregistré.';
+    config.then((cfg) => { if (cfg.app && cfg.publish) $('publish-one').click(); });
+  } catch (error) { trim.saving = false; $('quick-save').textContent = error.message; paintTrim(); }
+}
+// remet des valeurs prises dans la chanson (décalage, coupure, début, fin) sur un réglage
+function setAbsolute(t, v) {
+  t.offset = v.offset;
+  const shift = t.offset - t.offset0;
+  t.cutAdjustment = v.cut - (t.cut0 + shift);
+  t.start = v.start - shift; t.end = v.end - shift;
+}
 $('trim-reset').onclick = () => applyTrim(true);
 $('trim-apply').onclick = () => applyTrim(false);
 async function applyTrim(auto) {
@@ -1302,7 +1484,7 @@ function openEdit(c) {
   $('edit-lyrics').disabled = !c.words?.length;
   // la coupure ne se déplace qu'en refaisant l'extrait : il faut la chanson analysée sur ce PC
   const m = /__(\d+)-(\d+)$/.exec(c.id);
-  editCut = null; $('edit-cut').hidden = true; $('edit-sync').hidden = true;
+  editCut = null; $('edit-quick').hidden = true; $('edit-quick').replaceChildren();
   if (c.media && m && Number.isFinite(c.cutAt)) {
     // début de l'extrait dans la chanson : connu pour les extraits récents, sinon retrouvé
     // grâce au premier mot à deviner (son moment dans la chanson moins son moment dans l'extrait)
@@ -1313,9 +1495,9 @@ function openEdit(c) {
       const start = known ? c.sourceStart : gap && song ? Math.max(0, song.t - gap.t) : null;
       if (editing !== c || !$('edit-dialog').open || start === null || !song || !media.words?.[last] || !media.duration) return;
       const end = known ? c.sourceEnd : start + c.bedEnd;
-      editCut = { ...makeTiming(media, c, first, last, start, end), first, last };
-      showSync($('edit-sync'), editCut, paintEditCut);
-      $('edit-sync').hidden = false; $('edit-cut').hidden = false; paintEditCut();
+      editCut = { ...makeTiming(media, c, first, last, start, end), first, last, start0: start, end0: end };
+      showQuick($('edit-quick'), editCut);
+      $('edit-quick').hidden = false;
     }).catch(() => {});
   }
   const lists = [...lib.local.lists];
@@ -1353,19 +1535,7 @@ function lyricsLines(c) {
   return lines;
 }
 let editCut = null;
-function paintEditCut() {
-  $('edit-cut-shift').textContent = signedSeconds(editCut.cutAdjustment);
-}
-function hearEditCut() {
-  const cut = cutAtSource(editCut);
-  playSource(editCut.id, Math.max(0, cut - 4), cut);
-}
-for (const b of document.querySelectorAll('[data-ecut]')) b.onclick = () => {
-  nudgeCut(editCut, +b.dataset.ecut);
-  paintEditCut(); hearEditCut();
-};
-$('edit-cut-hear').onclick = hearEditCut;
-$('edit-dialog').addEventListener('close', stopSourcePreview);
+$('edit-dialog').addEventListener('close', () => { stopSourcePreview(); endTap(); });
 $('edit-form').onsubmit = async (e) => {
   if (e.submitter?.value !== 'save') return;
   e.preventDefault();
@@ -1386,7 +1556,7 @@ $('edit-form').onsubmit = async (e) => {
       await bgPost({ type: 'file', file: up.file });
     } else if (editBg.value === 'youtube') await bgPost({ type: 'youtube', url: $('edit-url').value.trim() });
     else if (editBg.value === 'none') await bgPost({ type: 'none' });
-    if (timing && (timing.offset !== timing.offset0 || Math.abs(cutAtSource(timing) - timing.cut0) > 0.05)) {
+    if (timing && (timing.offset !== timing.offset0 || Math.abs(cutAtSource(timing) - timing.cut0) > 0.05 || Math.abs(timing.start - timing.start0) > 0.05 || Math.abs(timing.end - timing.end0) > 0.05)) {
       $('edit-status').textContent = 'Fabrication de l’extrait…'; stopSourcePreview();
       const { start, end, cut } = extractBounds(timing);
       await post('/' + c.media + '/clip', { first: timing.first, last: timing.last, replace: c.id, keepBackground: true, title: $('edit-title').value, film: $('edit-film').value, listId: null,
