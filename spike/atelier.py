@@ -3,6 +3,8 @@
   python atelier.py analyze <dossier> --title T --artist A   source.* -> audio, stems, paroles LRCLIB, mots alignés
   python atelier.py align   <dossier> [--lrclib ID]          réaligne sur lyrics.txt (ou sur une fiche LRCLIB)
   python atelier.py build   <dossier> --first I --last J [--start S --end E --cut C]  fabrique clip.mp3 + clip.json pour le trou choisi
+                            [--anchor-word K --anchor-at T]  réaligne d'abord les paroles : la ligne du mot K commence à T s
+  python atelier.py repair  <dossier>                       répare words.json (sans carte graphique) à l'aide de words_asr.json
 
 Progression sur stdout : lignes « @@{json} ». Les paroles ne sont jamais écrites sur stdout, seulement
 dans les fichiers du dossier (words.json, lyrics.txt, clip.json).
@@ -22,6 +24,7 @@ import soundfile as sf
 from common import UA, containment, dump, ffmpeg, lrc_to_text, lrclib_candidates, probe_duration
 from gap import valley_cut
 from pipeline import MIN_CONTAINMENT, load_16k, separate, words_from_result
+from repair import norm, repair
 
 SEP = "bs_roformer"
 ASR = "large-v3"
@@ -33,6 +36,7 @@ ANSWER_TAIL = 5.0     # après la coupure : instrumental seul jusqu'à 5 s aprè
 REVEAL_LEAD = 10.0    # révélation : on reprend 10 s avant le passage à deviner…
 REVEAL_TAIL = 10.0    # … et on chante le passage puis 10 s de la suite
 GAP = 1.0             # silence entre la partie jeu et la partie révélation (même fichier)
+MAX_INTRO = 15.0      # l'extrait commence au plus 15 s avant les premières paroles affichées
 
 
 def emit(**data) -> None:
@@ -60,9 +64,20 @@ def align_and_save(d: Path, model, vocals16k, text: str, lang: str) -> int:
             prob = float(getattr(w, "probability", 1.0) or 0.0)
             words.append({"text": x, "start": round(float(w.start), 3), "end": round(float(w.end), 3),
                           "line": li, "uncertain": bool(prob < 0.45)})
-    dump(d / "words.json", words)
+    dump(d / "words_forced.json", words)
     (d / "lyrics.txt").write_text(text, encoding="utf-8")
+    fix_alignment(d, words)
     return len(words)
+
+
+def fix_alignment(d: Path, words: list[dict], anchors: dict[int, float] | None = None) -> None:
+    """Recale les paroles sur ce que Whisper entend (words.json) et garde à part le chant hors paroles (heard.json)."""
+    asr_file = d / "words_asr.json"
+    asr = json.loads(asr_file.read_text(encoding="utf-8")) if asr_file.exists() else []
+    fixed, heard, stats = repair(words, asr, anchors, probe_duration(d / "audio.wav"))
+    dump(d / "words.json", fixed)
+    dump(d / "heard.json", heard)
+    emit(repair=stats)
 
 
 def cmd_analyze(a) -> None:
@@ -149,6 +164,10 @@ def cmd_build(a) -> None:
     first, last = a.first, a.last
     if not 0 <= first <= last < len(words):
         raise SystemExit("Passage invalide.")
+    if a.anchor_word is not None:
+        if not 0 <= a.anchor_word < len(words) or a.anchor_at is None or a.anchor_at < 0:
+            raise SystemExit("Calage de la première ligne invalide.")
+        words = realign_from(d, words, a.anchor_word, a.anchor_at)
     if a.word_times:
         # lignes recalées à la main en tapant pendant l'écoute : [indice, début, fin] dans la chanson ;
         # gardées dans words.json pour que les autres passages de la chanson en profitent
@@ -195,6 +214,16 @@ def cmd_build(a) -> None:
     if a.start is not None:  # début choisi à la main : au moins 2 s avant la coupure
         t0 = min(max(0.0, a.start), max(0.0, cut - 2.0))
     t0 = min(t0, max(0.0, fw["start"]))
+    # chant entendu hors des paroles (intro parlée, couplet absent de la fiche) : affiché aussi, jamais à deviner
+    heard_file = d / "heard.json"
+    heard = json.loads(heard_file.read_text(encoding="utf-8")) if heard_file.exists() else []
+    extra = [(f"h{k}-{j}", {**h, "start": h["start"] + offset, "end": h["end"] + offset})
+             for k, g in enumerate(heard) for j, h in enumerate(g)]
+    # pas de longue intro muette : au plus MAX_INTRO secondes de musique avant le premier mot affiché
+    shown = [w["start"] for w in words[:last + 1] if w["start"] >= t0 - 0.2]
+    shown += [h["start"] for _, h in extra if t0 - 0.2 <= h["start"] < fw["start"]]
+    if shown and min(shown) - t0 > MAX_INTRO:
+        t0 = round(min(shown) - MAX_INTRO, 3)
 
     def col(x):
         return x[:, None] if orig.ndim == 2 else x
@@ -226,6 +255,8 @@ def cmd_build(a) -> None:
 
     # à l'écran : les paroles jusqu'au trou, rien après (la suite n'est plus chantée)
     sel = [(i, w) for i, w in enumerate(words[:last + 1]) if t0 - 0.2 <= w["start"] and w["end"] >= t0]
+    sel += [(key, h) for key, h in extra if t0 - 0.2 <= h["start"] and h["end"] <= fw["start"] - 0.05]
+    sel.sort(key=lambda x: x[1]["start"])
     dump(d / "clip.json", {
         "cutAt": round(cut - t0, 3),
         "revealAt": reveal_at,
@@ -236,10 +267,57 @@ def cmd_build(a) -> None:
         "lyricsOffset": offset,
         "revealDur": round(r1 - r0, 3),
         "words": [{"t": round(max(0.0, w["start"] - t0), 3), "e": round(w["end"] - t0, 3), "x": w["text"], "sourceIndex": i,
-                   "gap": first <= i <= last} for i, w in sel],
+                   "gap": isinstance(i, int) and first <= i <= last, **({"heard": True} if isinstance(i, str) else {})}
+                  for i, w in sel],
         "answer": " ".join(w["text"] for w in words[first:last + 1]),
     })
     emit(done=True, cutAt=round(cut - t0, 3), duration=round(len(out) / sr, 2))
+
+
+def realign_from(d: Path, words: list[dict], k: int, at: float) -> list[dict]:
+    """La ligne du mot k commence à « at » (tapé à l'oreille) : on réaligne les paroles de part et d'autre
+    de ce repère, puis on répare comme d'habitude. Mêmes mots, mêmes indices ; words.json est mis à jour."""
+    from difflib import SequenceMatcher
+    emit(step="align")
+    info = json.loads((d / "info.json").read_text(encoding="utf-8"))
+    lang = info.get("language") or "fr"
+    k0 = next(i for i, w in enumerate(words) if w["line"] == words[k]["line"])  # premier mot de la ligne
+    model = load_model()
+    vocals = load_16k(d / f"vocals_{SEP}.flac")
+    sr = 16000
+    out = [dict(w, uncertain=True) for w in words]
+
+    def align_part(idx: list[int], t0: float, t1: float) -> None:
+        if not idx or t1 - t0 < 0.5:
+            return
+        lines: dict[int, list[int]] = {}
+        for i in idx:
+            lines.setdefault(words[i]["line"], []).append(i)
+        text = "\n".join(" ".join(words[i]["text"] for i in ix) for ix in lines.values())
+        res = model.align(vocals[int(t0 * sr):int(t1 * sr)], text, language=lang, original_split=True)
+        got = [(w.word.strip(), float(w.start) + t0, float(w.end) + t0, float(getattr(w, "probability", 1.0) or 0.0))
+               for seg in res.segments for w in (seg.words or []) if w.word.strip()]
+        sm = SequenceMatcher(None, [norm(words[i]["text"]) for i in idx], [norm(g[0]) for g in got], autojunk=False)
+        for blk in sm.get_matching_blocks():
+            for j in range(blk.size):
+                i, (_, s, e, p) = idx[blk.a + j], got[blk.b + j]
+                out[i] = {**words[i], "start": round(s, 3), "end": round(e, 3), "uncertain": p < 0.45}
+
+    total = len(vocals) / sr
+    align_part(list(range(0, k0)), 0.0, at)
+    align_part(list(range(k0, len(words))), max(0.0, at - 0.15), total)
+    out[k0] = {**out[k0], "start": round(at, 3), "end": round(max(at + 0.1, out[k0]["end"]), 3), "uncertain": False}
+    fix_alignment(d, out, anchors={k0: at})
+    return json.loads((d / "words.json").read_text(encoding="utf-8"))
+
+
+def cmd_repair(a) -> None:
+    d = Path(a.dir)
+    src = d / "words_forced.json"
+    if not src.exists():  # chanson analysée avant la réparation : l'alignement d'origine est gardé à côté
+        shutil.copyfile(d / "words.json", src)
+    fix_alignment(d, json.loads(src.read_text(encoding="utf-8")))
+    emit(done=True)
 
 
 def main() -> None:
@@ -253,9 +331,11 @@ def main() -> None:
     p.add_argument("--last", type=int, required=True); p.add_argument("--out", default="clip.mp3")
     p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.add_argument("--cut", type=float)
     p.add_argument("--lyrics-offset", type=float); p.add_argument("--word-times")
+    p.add_argument("--anchor-word", type=int); p.add_argument("--anchor-at", type=float)
+    p = sub.add_parser("repair"); p.add_argument("dir")
     a = ap.parse_args()
     try:
-        {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build}[a.cmd](a)
+        {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build, "repair": cmd_repair}[a.cmd](a)
     except SystemExit as e:
         if isinstance(e.code, str):
             emit(error=e.code)

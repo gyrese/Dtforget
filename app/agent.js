@@ -51,7 +51,8 @@ async function handle(job, step) {
   // les pistes séparées restent sur ce PC : sans elles, il faut refaire l'analyse
   if (!existsSync(join(dir, 'vocals_bs_roformer.flac'))) throw new Error('Les pistes de cette chanson ne sont plus sur le PC. Renvoyez le fichier pour refaire l’analyse.');
   const done = await py.runJob(dir, job, step);
-  for (const name of job.cmd === 'build' ? ['clip.mp3', 'clip.json'] : ['info.json', 'words.json']) await upload(job.id, dir, name);
+  // paroles réalignées depuis la première ligne tapée : le serveur en ligne les reçoit aussi
+  for (const name of job.cmd === 'build' ? ['clip.mp3', 'clip.json', ...(Number.isInteger(job.anchorWord) ? ['words.json'] : [])] : ['info.json', 'words.json']) await upload(job.id, dir, name);
   return done;
 }
 

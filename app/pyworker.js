@@ -39,6 +39,8 @@ export function createPyWorker(spikeDir, { binDir } = {}) {
       if (Number.isFinite(job.end)) args.push('--end', String(job.end));
       if (Number.isFinite(job.cut)) args.push('--cut', String(job.cut));
       if (Number.isFinite(job.lyricsOffset)) args.push('--lyrics-offset', String(job.lyricsOffset));
+      // première ligne tapée à l'oreille : les paroles sont réalignées à partir d'elle avant la fabrication
+      if (Number.isInteger(job.anchorWord) && Number.isFinite(job.anchorAt)) args.push('--anchor-word', String(job.anchorWord), '--anchor-at', String(job.anchorAt));
       if (Array.isArray(job.wordTimes) && job.wordTimes.length) {
         const file = join(dir, 'word_times.json');
         writeFileSync(file, JSON.stringify(job.wordTimes), 'utf8');

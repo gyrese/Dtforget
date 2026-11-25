@@ -144,13 +144,8 @@ audio{width:100%;margin-top:18px}
 .q-tap{min-width:11em}.q-tap:not(:disabled){animation:q-pulse 1s ease-in-out infinite}
 @keyframes q-pulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--red) 30%,transparent)}}
 @media (prefers-reduced-motion:reduce){.q-tap:not(:disabled){animation:none}}
-.q-lines{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:260px;overflow:auto;font-size:14px}
-.q-lines li{display:flex;gap:10px;align-items:baseline;padding:4px 10px;border-radius:var(--r-md);color:var(--muted)}
-.q-lines li time{font:700 12px var(--f-mono);min-width:4.5em;color:var(--muted)}
-.q-lines li.done{color:var(--ink)}.q-lines li.done time{color:var(--led)}
-.q-lines li.skip{text-decoration:line-through;opacity:.6}
-.q-lines li.now{background:var(--spot);color:var(--on-spot);font-weight:800;font-size:16px}.q-lines li.now time{color:inherit}
-.q-lines li.gap{box-shadow:inset 3px 0 var(--live)}
+.q-first{display:flex;align-items:center;gap:10px}.q-first p{flex:1;margin:0;padding:8px 12px;border-radius:var(--r-md);background:var(--deck);font-weight:700;min-height:1.5em}
+.q-first .quiet{min-height:40px;padding:6px 12px}
 .q-len{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:center;font-size:14px}
 .q-len .chip{min-height:36px}
 .q-val{font:700 14px var(--f-mono);color:var(--led)}
@@ -346,9 +341,9 @@ kbd{font:700 12px var(--f-mono);border:1px solid var(--rule-strong);border-botto
 <template id="quick-template">
   <div class="quick">
     <section class="q" data-q="lines">
-      <div class="q-head"><span class="q-n">1</span><div><b>Caler les paroles</b><small>Lancez l’extrait et appuyez sur <kbd>Espace</kbd> au début de chaque ligne surlignée. Si elle n’est pas chantée dans l’extrait : <kbd>→</kbd> pour la passer. <kbd>←</kbd> revient en arrière.</small></div></div>
-      <ol class="q-lines" data-lines></ol>
-      <div class="row"><button class="quiet" type="button" data-lines-play>▶ Commencer</button><button class="btn q-tap" type="button" data-lines-tap disabled>Ça commence !</button><button class="quiet" type="button" data-lines-skip disabled>Pas chantée →</button><span class="note grow" data-lines-status role="status"></span></div>
+      <div class="q-head"><span class="q-n">1</span><div><b>Les paroles suivent la musique ?</b><small>Elles se calent toutes seules. Sinon : lancez l’écoute et appuyez sur <kbd>Espace</kbd> dès que la ligne ci-dessous commence. L’atelier recale tout le reste.</small></div></div>
+      <div class="q-first"><button class="quiet" type="button" data-first-prev aria-label="Ligne d’avant">‹</button><p data-first-line></p><button class="quiet" type="button" data-first-next aria-label="Ligne d’après">›</button></div>
+      <div class="row"><button class="quiet" type="button" data-first-play>▶ Écouter</button><button class="btn q-tap" type="button" data-first-tap disabled>Ça commence !</button><span class="note grow" data-first-status role="status"></span></div>
     </section>
     <section class="q" data-q="tap">
       <div class="q-head"><span class="q-n">1</span><div><b>Le bon moment</b><small>Lancez l’écoute, puis appuyez sur <kbd>Espace</kbd> (ou sur le bouton) dès que vous entendez <q data-word></q>.</small></div></div>
@@ -781,7 +776,7 @@ const signedSeconds = (s) => (s > 0.005 ? '+' : s < -0.005 ? '−' : '') + Math.
 function makeTiming(media, clip, first, last, start, end) {
   const offset0 = clip.lyricsOffset ?? 0;
   return { id: media.id, duration: media.duration, from: media.words[first].t, to: media.words[last].e, word: media.words[first].x,
-    context: contextOf(media.words, first), words: media.words, first, last, wordTimes: null, offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
+    context: contextOf(media.words, first), words: media.words, first, last, anchor: null, offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
 }
 function cutAtSource(t) {
   return clamp(t.cut0 + t.offset - t.offset0 + t.cutAdjustment, 0, Math.min(t.duration, t.to + t.offset));
@@ -939,51 +934,11 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight' && tapTarget.skip) { e.preventDefault(); tapTarget.skip(); }
   else if (e.key === 'ArrowLeft' && tapTarget.back) { e.preventDefault(); tapTarget.back(); }
 }, true);
-// mots recalés en tapant les lignes, à envoyer avec l'extrait (temps de la chanson, sans le décalage des paroles)
-const wordTimesOf = (t) => t.wordTimes ? [...t.wordTimes].filter(([, [a]]) => a >= 0).map(([i, [a, b]]) => [i, Math.round(a * 1000) / 1000, Math.round(b * 1000) / 1000]) : undefined;
-// durée probable pour chanter des mots (quand rien d'autre ne la borne)
-const singTime = (words, a, b) => { let s = 0; for (let k = a; k <= b; k++) s += words[k].x.length * 0.065 + 0.12; return s; };
-// les lignes tapées deviennent des temps mot par mot : chaque ligne s'étale depuis son appui,
-// chaque mot à proportion de sa longueur ; avant le premier appui et après le dernier, on décale tel quel
-function retime(t, targets, taps, lineEnd, extractStart) {
-  const W = t.words, off = t.offset, abs = new Map();
-  const anchors = [...taps].sort((a, b) => a[0] - b[0]).filter((x, k, all) => k === 0 || x[1] > all[k - 1][1] + 0.15);
-  if (!anchors.length) return false;
-  const w1 = lineEnd(targets.at(-1).i);
-  anchors.forEach(([ia, Ta], k) => {
-    const next = anchors[k + 1], to = next ? next[0] - 1 : lineEnd(ia);
-    const span = Math.max(0.3, Math.min(next ? next[1] - Ta - 0.05 : Infinity, singTime(W, ia, to)));
-    let total = 0; for (let j = ia; j <= to; j++) total += W[j].x.length + 2;
-    let cum = 0;
-    for (let j = ia; j <= to; j++) {
-      const wgt = W[j].x.length + 2;
-      abs.set(j, [Ta + span * cum / total, Ta + span * (cum + wgt) / total - 0.02]);
-      cum += wgt;
-    }
-  });
-  // les mots d'avant (non tapés : pas chantés dans l'extrait) ne doivent pas déborder dessus :
-  // ceux qui gênent sont rangés juste avant le début de l'extrait, dans l'ordre
-  const [a0, T0] = anchors[0];
-  let hi = Math.min(T0, extractStart) - 0.05;
-  for (let j = a0 - 1; j >= 0; j--) {
-    if (W[j].e + off <= hi) break;
-    const e = Math.max(0, hi), s = Math.max(0, e - 0.05);
-    abs.set(j, [s, e]); hi = s - 0.01;
-  }
-  // ceux d'après suivent le dernier appui, sans jamais revenir en arrière
-  const [aN, TN] = anchors.at(-1), dN = TN - (W[aN].t + off);
-  let lo = abs.get(lineEnd(aN))[1] + 0.02;
-  for (let j = lineEnd(aN) + 1; j < W.length; j++) {
-    let a = W[j].t + off + (j <= w1 ? dN : 0), b = W[j].e + off + (j <= w1 ? dN : 0);
-    if (j > w1 && a >= lo) break;
-    if (a < lo) { b += lo - a; a = lo; }
-    abs.set(j, [a, b]); lo = b + 0.02;
-  }
-  t.wordTimes = new Map([...abs].map(([j, [a, b]]) => [j, [a - off, Math.max(a, b) - off]]));
-  const f = t.wordTimes.get(t.first), l = t.wordTimes.get(t.last);
-  if (f) t.from = f[0];
-  if (l) t.to = l[1];
-  return true;
+// réglages envoyés pour refaire un extrait : avec une première ligne tapée, les paroles sont réalignées
+// sur le PC (plus de décalage) et la coupure se recalcule toute seule sur le passage déplacé
+function timingBody(t) {
+  const { start, end, cut } = extractBounds(t);
+  return t.anchor ? { start, end, anchor: t.anchor } : { start, end, cut, lyricsOffset: t.offset };
 }
 // la touche relâchée ne doit pas « cliquer » en plus le bouton qui a le focus
 let spaceTapped = false;
@@ -1005,63 +960,46 @@ function showQuick(container, t, { parts = ['lines', 'cut', 'len'], onChange = (
     const cut = cutAtSource(t);
     playSource(t.id, Math.max(0, cut - 3.5), Math.min(t.duration, cut + 2), null, parts.includes('cut') ? cut : null);
   };
-  // 1. Caler les paroles : on tape le début de chaque ligne pendant l'écoute de l'extrait
+  // 1. Les paroles suivent ? Sinon on tape le début de la première ligne de l'extrait : le PC réaligne le reste depuis ce repère
   if (parts.includes('lines') && t.words) {
-    const W = t.words, list = q('[data-lines]'), status = q('[data-lines-status]');
-    const go = q('[data-lines-play]'), tapB = q('[data-lines-tap]'), skipB = q('[data-lines-skip]');
-    const lineEnd = (i) => { let j = i; while (j + 1 < W.length && W[j + 1].l === W[i].l) j++; return j; };
-    const starts = W.flatMap((w, i) => i === 0 || W[i - 1].l !== w.l ? [i] : []);
-    const gi = starts.findIndex((i) => W[i].l === W[t.first].l), li = starts.findIndex((i) => W[i].l === W[t.last].l);
-    const targets = starts.slice(Math.max(0, gi - 8), Math.min(starts.length, li + 2)).map((i) => ({ i }));
-    // passage à deviner au milieu d'une ligne : on tape aussi son premier mot
-    if (!targets.some((x) => x.i === t.first)) { targets.push({ i: t.first }); targets.sort((a, b) => a.i - b.i); }
-    targets.forEach((x, k) => {
-      const to = Math.min(lineEnd(x.i), (targets[k + 1]?.i ?? Infinity) - 1);
-      x.to = to; x.gap = x.i <= t.last && to >= t.first;
-      x.text = W.slice(x.i, to + 1).map((w) => w.x).join(' ');
-    });
-    const taps = new Map(), skipped = new Set();
-    let cur = -1;
-    const rows = targets.map((x) => { const r = el('li', x.gap ? 'gap' : ''); r.append(el('time'), el('span', '', x.text)); list.append(r); return r; });
-    const paintLines = () => {
-      const on = tapTarget === liner;
-      targets.forEach((x, k) => {
-        const r = rows[k], tapped = taps.get(x.i);
-        r.className = (x.gap ? 'gap ' : '') + (on && k === cur ? 'now' : tapped !== undefined ? 'done' : skipped.has(x.i) ? 'skip' : '');
-        r.firstChild.textContent = tapped !== undefined ? fmt1(tapped) : '';
-      });
-      const now = rows[cur];
-      if (on && now) list.scrollTop = Math.max(0, now.offsetTop - list.offsetTop - list.clientHeight / 2 + now.clientHeight / 2);
-      go.textContent = on ? '■ Arrêter' : taps.size ? '▶ Recommencer' : '▶ Commencer';
-      tapB.disabled = skipB.disabled = !on;
+    const W = t.words, line = q('[data-first-line]'), status = q('[data-first-status]');
+    const go = q('[data-first-play]'), tapB = q('[data-first-tap]');
+    const gapLine = W[t.first].l;
+    const starts = W.flatMap((w, i) => (i === 0 || W[i - 1].l !== w.l) && w.l <= gapLine ? [i] : []);
+    const lineOf = (k) => W.slice(starts[k], (starts[k + 1] ?? W.length)).filter((w) => w.l === W[starts[k]].l).map((w) => w.x).join(' ');
+    // la ligne qu'on pense entendre en premier dans l'extrait (‹ et › pour en choisir une autre)
+    let cur = Math.max(0, starts.findIndex((i) => W[i].t + t.offset >= extractBounds(t).start - 0.3));
+    if (t.anchor) cur = Math.max(0, starts.indexOf(t.anchor.word));
+    const paintFirst = () => {
+      line.textContent = lineOf(cur);
+      q('[data-first-prev]').disabled = cur <= 0; q('[data-first-next]').disabled = cur >= starts.length - 1;
+      const on = tapTarget === first;
+      go.textContent = on ? '■ Arrêter' : '▶ Écouter';
+      tapB.disabled = !on;
     };
-    const finish = () => {
-      if (!retime(t, targets, taps, lineEnd, extractBounds(t).start)) { status.textContent = 'Aucune ligne tapée.'; paintLines(); return; }
-      if (parts.includes('cut')) setCut(t, t.from + t.offset - CUT_LEAD);
-      status.textContent = taps.size + (taps.size > 1 ? ' lignes calées.' : ' ligne calée.') + (parts.includes('cut') ? ' Écoutez la coupure ci-dessous.' : '');
-      changed();
+    const first = {
+      live: false, paint: paintFirst,
+      tap() {
+        const at = Math.max(0, player.currentTime - TAP_LAG);
+        tapTarget = null; stopSourcePreview();
+        t.anchor = { word: starts[cur], at: Math.round(at * 1000) / 1000 };
+        status.textContent = 'Calée à ' + fmt1(at) + '. Le PC recale toutes les paroles et refait l’extrait…';
+        paintFirst(); changed();
+      },
+      back() { if (cur > 0) { cur--; paintFirst(); } },
+      skip() { if (cur < starts.length - 1) { cur++; paintFirst(); } },
     };
-    const step = () => { cur++; if (cur >= targets.length) { tapTarget = null; stopSourcePreview(); finish(); } paintLines(); };
-    const liner = {
-      live: false, paint: paintLines,
-      tap() { taps.set(targets[cur].i, player.currentTime - TAP_LAG); skipped.delete(targets[cur].i); step(); },
-      skip() { skipped.add(targets[cur].i); taps.delete(targets[cur].i); step(); },
-      back() { if (cur > 0) { cur--; taps.delete(targets[cur].i); skipped.delete(targets[cur].i); paintLines(); } },
-      end() { finish(); paintLines(); },
-    };
+    q('[data-first-prev]').onclick = () => first.back();
+    q('[data-first-next]').onclick = () => first.skip();
     go.onclick = () => {
-      if (tapTarget === liner) { stopSourcePreview(); endTap(); return; }
-      const { start } = extractBounds(t), from = Math.max(0, start - 1);
-      taps.clear(); skipped.clear(); status.textContent = '';
-      // première ligne surlignée : celle qu'on pense entendre en premier (← et → pour corriger)
-      cur = Math.max(0, targets.findIndex((x) => W[x.i].t + t.offset >= from - 0.3));
-      playSource(t.id, from, t.duration);
-      liner.live = false; tapTarget = liner; paintLines(); tapB.focus();
+      if (tapTarget === first) { stopSourcePreview(); endTap(); return; }
+      status.textContent = '';
+      playSource(t.id, Math.max(0, extractBounds(t).start - 2), t.duration);
+      first.live = false; tapTarget = first; paintFirst(); tapB.focus();
     };
-    tapB.addEventListener('pointerdown', (e) => { if (tapTarget === liner) { e.preventDefault(); liner.tap(); } });
-    tapB.onclick = (e) => { if (e.detail === 0 && tapTarget === liner) liner.tap(); };
-    skipB.onclick = () => { if (tapTarget === liner) liner.skip(); };
-    paintLines();
+    tapB.addEventListener('pointerdown', (e) => { if (tapTarget === first) { e.preventDefault(); first.tap(); } });
+    tapB.onclick = (e) => { if (e.detail === 0 && tapTarget === first) first.tap(); };
+    paintFirst();
   }
   const tapper = {
     live: false, paint: () => paint(),
@@ -1355,7 +1293,7 @@ for (const media of [player, doneAudio]) for (const ev of ['play', 'pause', 'see
 addEventListener('resize', () => { if (!$('v-done').hidden) paintTrim(); });
 function trimChanged() {
   const { cut, start, end } = extractBounds(trim);
-  return !!trim.wordTimes || trim.offset !== trim.offset0 || Math.abs(start - trim.clip.sourceStart) > 0.05 || Math.abs(end - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
+  return !!trim.anchor || trim.offset !== trim.offset0 || Math.abs(start - trim.clip.sourceStart) > 0.05 || Math.abs(end - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
 }
 $('trim-expert').addEventListener('toggle', () => { if ($('trim-expert').open) { fitView(); paintTrim(); } });
 // les réponses aux questions s'enregistrent seules : l'extrait est refait en arrière-plan, sans quitter la page
@@ -1370,12 +1308,12 @@ async function quickSave() {
   if (tapTarget || trim.saving) { saveTimer = setTimeout(quickSave, 800); return; }
   if (!trim.clip || !trimChanged()) { $('quick-save').textContent = 'Enregistré.'; return; }
   const c = trim.clip, songId = id;
-  const want = { offset: trim.offset, ...extractBounds(trim) }, sentTimes = trim.wordTimes;
+  const want = { offset: trim.offset, ...extractBounds(trim) }, sentAnchor = trim.anchor;
   trim.saving = true; paintTrim();
   $('quick-save').textContent = 'Mise à jour de l’extrait…';
   try {
     await post('/' + songId + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
-      lyricsOffset: want.offset, start: want.start, end: want.end, cut: want.cut, wordTimes: wordTimesOf(trim) });
+      ...timingBody(trim) });
     let st;
     for (;;) {
       await new Promise((r) => setTimeout(r, 800));
@@ -1386,11 +1324,13 @@ async function quickSave() {
     if (st.error) throw new Error(st.error);
     while (tapTarget) await new Promise((r) => setTimeout(r, 300)); // ne pas couper une écoute « Le bon moment »
     // ce qui a été touché pendant la fabrication est gardé et repart au prochain enregistrement
-    const now = { offset: trim.offset, ...extractBounds(trim) }, newTimes = trim.wordTimes !== sentTimes ? trim.wordTimes : null, from = trim.from, to = trim.to;
+    const now = { offset: trim.offset, ...extractBounds(trim) }, newAnchor = trim.anchor !== sentAnchor ? trim.anchor : null;
     state = st; trim.saving = false;
     fillDone(state.clips[state.clips.length - 1]);
-    const moved = !!newTimes || ['offset', 'start', 'end', 'cut'].some((k) => Math.abs(now[k] - want[k]) > 0.05);
-    if (moved) { if (newTimes) Object.assign(trim, { wordTimes: newTimes, from, to }); setAbsolute(trim, now); fitView(); paintTrim(); scheduleSave(); return; }
+    // paroles réalignées : la coupure et les paroles viennent d'être recalculées, on repart de là
+    if (sentAnchor && !newAnchor) { $('quick-save').textContent = 'Paroles recalées, extrait refait.'; return; }
+    const moved = !!newAnchor || ['offset', 'start', 'end', 'cut'].some((k) => Math.abs(now[k] - want[k]) > 0.05);
+    if (moved) { if (newAnchor) trim.anchor = newAnchor; else setAbsolute(trim, now); fitView(); paintTrim(); scheduleSave(); return; }
     $('quick-save').textContent = 'Enregistré.';
     config.then((cfg) => { if (cfg.app && cfg.publish) $('publish-one').click(); });
   } catch (error) { trim.saving = false; $('quick-save').textContent = error.message; paintTrim(); }
@@ -1687,11 +1627,10 @@ $('edit-form').onsubmit = async (e) => {
       await bgPost({ type: 'file', file: up.file });
     } else if (editBg.value === 'youtube') await bgPost({ type: 'youtube', url: $('edit-url').value.trim() });
     else if (editBg.value === 'none') await bgPost({ type: 'none' });
-    if (timing && (timing.wordTimes || timing.offset !== timing.offset0 || Math.abs(cutAtSource(timing) - timing.cut0) > 0.05 || Math.abs(timing.start - timing.start0) > 0.05 || Math.abs(timing.end - timing.end0) > 0.05)) {
+    if (timing && (timing.anchor || timing.offset !== timing.offset0 || Math.abs(cutAtSource(timing) - timing.cut0) > 0.05 || Math.abs(timing.start - timing.start0) > 0.05 || Math.abs(timing.end - timing.end0) > 0.05)) {
       $('edit-status').textContent = 'Fabrication de l’extrait…'; stopSourcePreview();
-      const { start, end, cut } = extractBounds(timing);
       await post('/' + c.media + '/clip', { first: timing.first, last: timing.last, replace: c.id, keepBackground: true, title: $('edit-title').value, film: $('edit-film').value, listId: null,
-        start, end, cut, lyricsOffset: timing.offset, wordTimes: wordTimesOf(timing) });
+        ...timingBody(timing) });
       for (;;) {
         await new Promise((r) => setTimeout(r, 1000));
         const st = await api('/' + c.media);

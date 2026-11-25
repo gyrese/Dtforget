@@ -187,6 +187,12 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
       if (!Number.isFinite(req.body.lyricsOffset) || Math.abs(req.body.lyricsOffset) > (m.duration ?? 3600)) return res.status(400).json({ error: 'Le passage à deviner doit rester dans la chanson.' });
       job.lyricsOffset = req.body.lyricsOffset;
     }
+    // première ligne de l'extrait tapée à l'oreille : { word, at } (indice du mot, secondes dans la chanson)
+    if (req.body?.anchor !== undefined) {
+      const { word, at } = req.body.anchor || {};
+      if (!Number.isInteger(word) || word < 0 || word > 100000 || !Number.isFinite(at) || at < 0 || at > (m.duration ?? 3600)) return res.status(400).json({ error: 'Calage de la première ligne invalide.' });
+      Object.assign(job, { anchorWord: word, anchorAt: at, lyricsOffset: 0 }); // les paroles réalignées n'ont plus de décalage
+    }
     // paroles recalées ligne par ligne : [indice du mot, début, fin] en secondes dans la chanson
     if (req.body?.wordTimes !== undefined) {
       const max = m.duration ?? 3600, list = req.body.wordTimes;
