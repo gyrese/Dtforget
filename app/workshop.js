@@ -187,6 +187,14 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
       if (!Number.isFinite(req.body.lyricsOffset) || Math.abs(req.body.lyricsOffset) > (m.duration ?? 3600)) return res.status(400).json({ error: 'Le passage à deviner doit rester dans la chanson.' });
       job.lyricsOffset = req.body.lyricsOffset;
     }
+    // paroles recalées ligne par ligne : [indice du mot, début, fin] en secondes dans la chanson
+    if (req.body?.wordTimes !== undefined) {
+      const max = m.duration ?? 3600, list = req.body.wordTimes;
+      const ok = Array.isArray(list) && list.length <= 5000 && list.every((w) => Array.isArray(w) && w.length === 3 && Number.isInteger(w[0]) && w[0] >= 0
+        && Number.isFinite(w[1]) && Number.isFinite(w[2]) && w[1] >= 0 && w[1] <= w[2] && w[2] <= max + 1);
+      if (!ok) return res.status(400).json({ error: 'Calage des paroles invalide.' });
+      job.wordTimes = list;
+    }
     run(id, job, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
       if (job.lyricsOffset !== undefined && (built.lyricsOffset ?? 0) !== job.lyricsOffset) throw new Error('Mettez à jour le PC de traitement pour recaler les paroles.');

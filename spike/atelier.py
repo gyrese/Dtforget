@@ -149,6 +149,13 @@ def cmd_build(a) -> None:
     first, last = a.first, a.last
     if not 0 <= first <= last < len(words):
         raise SystemExit("Passage invalide.")
+    if a.word_times:
+        # lignes recalées à la main en tapant pendant l'écoute : [indice, début, fin] dans la chanson ;
+        # gardées dans words.json pour que les autres passages de la chanson en profitent
+        for i, start, end in json.loads(Path(a.word_times).read_text(encoding="utf-8")):
+            if 0 <= int(i) < len(words) and 0 <= float(start) <= float(end):
+                words[int(i)] = {**words[int(i)], "start": round(float(start), 3), "end": round(float(end), 3), "uncertain": False}
+        dump(d / "words.json", words)
     orig, sr = sf.read(d / "audio.wav", dtype="float32")
     instr, sr2 = sf.read(d / f"instrumental_{SEP}.flac", dtype="float32")
     if sr != sr2:
@@ -245,7 +252,7 @@ def main() -> None:
     p = sub.add_parser("build"); p.add_argument("dir"); p.add_argument("--first", type=int, required=True)
     p.add_argument("--last", type=int, required=True); p.add_argument("--out", default="clip.mp3")
     p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.add_argument("--cut", type=float)
-    p.add_argument("--lyrics-offset", type=float)
+    p.add_argument("--lyrics-offset", type=float); p.add_argument("--word-times")
     a = ap.parse_args()
     try:
         {"analyze": cmd_analyze, "align": cmd_align, "build": cmd_build}[a.cmd](a)
