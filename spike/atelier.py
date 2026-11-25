@@ -158,8 +158,8 @@ def cmd_build(a) -> None:
     total = n / sr
 
     offset = a.lyrics_offset or 0.0
-    if not -30 <= offset <= 30:
-        raise SystemExit("Le décalage des paroles doit être compris entre −30 et +30 secondes.")
+    if not -total <= offset <= total:
+        raise SystemExit("Le passage à deviner doit rester dans la chanson.")
     if offset:
         if words[first]["start"] + offset < 0 or words[last]["end"] + offset > max(total, words[last]["end"]) + 0.01:
             raise SystemExit("Le passage à deviner doit rester dans la chanson.")

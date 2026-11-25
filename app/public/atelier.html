@@ -119,7 +119,7 @@ audio{width:100%;margin-top:18px}
 .mt-cut span{top:58px;background:var(--live);color:var(--night);font-size:12px;padding:3px 5px}
 .mt-h:focus-visible,.mt-cut:focus-visible{outline:2px solid var(--led);outline-offset:-2px}
 .mt-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--chalk);box-shadow:0 0 8px var(--chalk);pointer-events:none;z-index:3}
-.mt-insp{display:grid;grid-template-columns:repeat(5,1fr);margin-top:14px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--deck-2)}
+.mt-insp{display:grid;grid-template-columns:repeat(4,1fr);margin-top:14px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--deck-2)}
 .mt-cell{padding:10px 12px;border-left:1px solid var(--rule);min-width:0}.mt-cell:first-child{border-left:0}
 .mt-cell small{display:block;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
 .mt-cell small i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
@@ -134,9 +134,10 @@ audio{width:100%;margin-top:18px}
 .sync-panel{display:grid;gap:10px;padding:14px 16px;margin:0 0 18px;border:1px solid var(--rule-strong);border-radius:var(--r-md);background:var(--deck-2)}
 .sync-panel .sync-title{font-size:16px;font-weight:800;color:var(--ink)}
 .sync-panel .sync-value{font:700 16px var(--f-mono);color:var(--led)}
-.sync-panel input[type="range"]{width:100%;height:28px;padding:0;margin:0;accent-color:var(--led);cursor:ew-resize}
-.sync-panel .sync-scale{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
-.sync-panel .sync-actions{gap:8px;margin:0}
+.sync-panel .sync-actions{gap:8px;margin:0;align-items:end}
+.sync-panel .sync-position{display:grid;gap:4px}
+.sync-panel .sync-position input{width:9em}
+.sync-panel .note{min-height:0}
 .sync-panel .sync-actions .quiet{padding:8px 10px}
 .sync-panel .sync-now{color:var(--led);font-weight:800}
 @media (max-width:640px){.fields{grid-template-columns:1fr}.steps li span{display:none}.lyrics{font-size:18px;padding:16px}}
@@ -148,14 +149,16 @@ audio{width:100%;margin-top:18px}
 .tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--rule)}
 .tabs a{padding:10px 16px;font-weight:700;font-size:14px;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-1px}
 .tabs a:hover{color:var(--ink)}.tabs a[aria-current=page]{color:var(--ink);border-bottom-color:var(--spot)}
-.lib-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 16px}
-.lib-tools input{flex:1;min-width:200px}
+.lib-tools{display:grid;grid-template-columns:minmax(200px,2fr) repeat(3,minmax(0,1fr));gap:12px;align-items:end;margin:16px 0}
+.lib-tools label{margin:0;min-width:0}
+.library-pagination{justify-content:center;margin-top:18px}
+@media(max-width:760px){.lib-tools{grid-template-columns:repeat(2,minmax(0,1fr))}.lib-tools label:first-child{grid-column:1/-1}}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{min-height:38px;border:1px solid var(--rule-strong);border-radius:var(--r-pill);padding:6px 14px;background:transparent;font-size:13px;font-weight:700}
 .chip[aria-pressed=true]{background:var(--spot);border-color:var(--spot);color:var(--on-spot)}
 .lib{list-style:none;padding:0;margin:0;border-top:1px solid var(--rule)}
 .lib li{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--edge)}
-.lib .who{min-width:0}.lib .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib .who{min-width:0;overflow-wrap:anywhere}.lib .who b{display:block}
 .lib .who small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lib .ans{color:var(--led)}
 .yt-row{display:block;margin-top:16px}.yt-row input{margin-top:6px}.yt-row small{display:block;margin-top:6px}
@@ -215,6 +218,7 @@ audio{width:100%;margin-top:18px}
   <section id="v-lyrics" hidden>
     <div class="lyrics-head"><div><h2>Sélectionnez le passage à deviner.</h2><p class="lead" style="margin:0">Cliquez sur le premier mot, puis sur le dernier. La voix sera retirée sur ce passage et l’extrait s’arrêtera 5 secondes après.</p></div><button class="quiet" id="change-lyrics">Ce ne sont pas les bonnes paroles</button></div>
     <p class="eyebrow" id="lyrics-source" style="margin:0 0 8px"></p>
+    <details id="lyrics-sync-box" hidden><summary class="quiet">Recaler les paroles</summary><div id="lyrics-sync"></div></details>
     <div class="lyrics" id="lyrics"></div>
   </section>
 
@@ -228,7 +232,8 @@ audio{width:100%;margin-top:18px}
     </div>
 
     <div class="montage" id="trim" hidden>
-      <div class="mt-top"><h3>Table de montage</h3><span class="note">Glissez les poignées <b>Début</b> et <b>Fin</b>, les ciseaux de la coupure ou la piste des paroles. Chaque réglage se fait entendre aussitôt.</span></div>
+      <div class="mt-top"><h3>Table de montage</h3><span class="note">Cliquez sur la forme d’onde pour écouter la chanson à cet endroit. Glissez les poignées pour régler l’extrait.</span></div>
+      <div id="trim-sync"></div>
       <div class="mt-over" id="mt-over" title="La chanson entière"><canvas id="mt-over-wave"></canvas><div class="mt-over-win" id="mt-over-win"></div><div class="mt-over-gap" id="mt-over-gap"></div><div class="mt-over-head" id="mt-over-head" hidden></div>
         <button type="button" class="mt-over-h" id="trim-h0o" tabindex="-1" aria-hidden="true"></button><button type="button" class="mt-over-h" id="trim-h1o" tabindex="-1" aria-hidden="true"></button></div>
       <div class="mt-scale"><span>0:00</span><span class="mt-scale-mid">Chanson entière · l’encadré jaune est l’extrait</span><span id="trim-total"></span></div>
@@ -251,7 +256,6 @@ audio{width:100%;margin-top:18px}
         <div class="mt-cell"><small><i style="background:var(--spot)"></i>Début</small><b id="trim-start"></b><div><button class="quiet" type="button" data-k="start" data-d="-0.1" aria-label="Début plus tôt">−</button><button class="quiet" type="button" data-k="start" data-d="0.1" aria-label="Début plus tard">+</button></div></div>
         <div class="mt-cell"><small><i style="background:var(--live)"></i>Coupure</small><b id="trim-cutv"></b><div><button class="quiet" type="button" data-k="cut" data-d="-0.1" aria-label="Coupure plus tôt">−</button><button class="quiet" type="button" data-k="cut" data-d="0.1" aria-label="Coupure plus tard">+</button><em id="cut-shift"></em></div></div>
         <div class="mt-cell"><small><i style="background:var(--spot)"></i>Fin</small><b id="trim-end"></b><div><button class="quiet" type="button" data-k="end" data-d="-0.1" aria-label="Fin plus tôt">−</button><button class="quiet" type="button" data-k="end" data-d="0.1" aria-label="Fin plus tard">+</button></div></div>
-        <div class="mt-cell"><small><i style="background:var(--led)"></i>Paroles</small><b id="mt-off"></b><div><button class="quiet" type="button" data-k="offset" data-d="-0.1" aria-label="Paroles plus tôt">−</button><button class="quiet" type="button" data-k="offset" data-d="0.1" aria-label="Paroles plus tard">+</button><button class="quiet" type="button" id="mt-off-zero" title="Remettre le recalage à zéro">0</button></div></div>
         <div class="mt-cell"><small>Durée</small><b id="trim-len"></b></div>
       </div>
       <div class="row" style="margin-top:14px"><button class="quiet" id="trim-reset" type="button">Bornes et coupure automatiques</button><span class="grow note" id="trim-status" role="status"></span><button class="btn" id="trim-apply" type="button" disabled>Appliquer à l’extrait</button></div>
@@ -263,12 +267,21 @@ audio{width:100%;margin-top:18px}
   <section id="v-library" hidden>
     <p class="lead" id="lib-lead">Toutes les chansons de ce PC, et ce qui est déjà en ligne.</p>
     <div class="lib-tools">
-      <input type="search" id="lib-q" placeholder="Chercher un titre, un artiste, une réponse…" aria-label="Chercher dans la bibliothèque">
-      <div class="chips" id="lib-filters" role="group" aria-label="Filtrer"></div>
+      <label>Rechercher<input type="search" id="lib-q" placeholder="Titre, artiste, film ou réponse"></label>
+      <label>Playlist<select id="lib-list"><option value="">Toutes les playlists</option></select></label>
+      <label>Statut<select id="lib-filter">
+        <option value="all">Tous les extraits</option><option value="draft">En cours</option>
+        <option value="todo" hidden>À envoyer</option><option value="online" hidden>À jour en ligne</option>
+        <option value="remote" hidden>Seulement en ligne</option>
+      </select></label>
+      <label>Trier par<select id="lib-sort"><option value="title">Titre</option><option value="film">Artiste ou film</option><option value="recent">Plus récents</option></select></label>
     </div>
-    <div class="row" style="margin:0 0 14px"><p class="note grow" id="lib-status" role="status"></p><button class="quiet" id="lib-sync" hidden>Envoyer ce qui n’est pas à jour ↑</button></div>
+    <div class="row" style="margin:0 0 14px"><p class="note grow" id="lib-status" role="status"></p><button class="quiet" id="lib-sync" hidden>Envoyer ce qui n'est pas à jour ↑</button></div>
+    <p class="note" id="lib-results" role="status"></p>
     <ul class="lib" id="lib"></ul>
-    <div id="drafts-box" hidden style="margin-top:34px"><h2>En cours.</h2><p class="lead" style="margin:0 0 10px">Chansons analysées dans l’atelier, sans extrait pour l’instant.</p><ul class="lib" id="drafts"></ul></div>
+    <nav class="row library-pagination" id="lib-pagination" aria-label="Pages des extraits" hidden>
+      <button class="quiet" id="lib-prev" type="button">Précédent</button><span class="note" id="lib-range" aria-live="polite"></span><button class="quiet" id="lib-next" type="button">Suivant</button>
+    </nav>
   </section>
 </div>
 
@@ -307,12 +320,17 @@ audio{width:100%;margin-top:18px}
 <template id="sync-template">
   <div class="sync-panel" role="group" aria-label="Recaler les paroles">
     <div class="row sync-actions"><span class="sync-title grow">Recaler les paroles</span><output class="sync-value" aria-live="off"></output></div>
-    <div class="sync-scale"><span>Plus tôt</span><input type="range" step="0.1" aria-label="Décalage des paroles"><span>Plus tard</span></div>
     <div class="row sync-actions">
-      <button class="quiet" type="button" data-nudge="-1">−1 s</button><button class="quiet" type="button" data-nudge="-0.1">−0,1 s</button>
-      <button class="quiet" type="button" data-nudge="0.1">+0,1 s</button><button class="quiet" type="button" data-nudge="1">+1 s</button>
+      <label class="sync-position">Position audio (en secondes)<input type="number" min="0" step="0.1" inputmode="decimal"></label>
+      <button class="quiet" type="button" data-sync-play>▶ Écouter depuis cette position</button>
+      <button class="btn" type="button" data-sync-anchor></button>
+    </div>
+    <small class="note">Écoutez la chanson originale, puis placez le mot quand vous l’entendez. Vous pouvez aussi saisir sa position.</small>
+    <div class="row sync-actions">
+      <button class="quiet" type="button" data-nudge="-1" aria-label="Paroles 1 seconde plus tôt">−1 s</button><button class="quiet" type="button" data-nudge="-0.1" aria-label="Paroles 0,1 seconde plus tôt">−0,1 s</button>
+      <button class="quiet" type="button" data-nudge="0.1" aria-label="Paroles 0,1 seconde plus tard">+0,1 s</button><button class="quiet" type="button" data-nudge="1" aria-label="Paroles 1 seconde plus tard">+1 s</button>
       <button class="quiet" type="button" data-sync-reset>Remettre à zéro</button>
-      <span class="grow"></span><button class="quiet" type="button" data-sync-hear>▶ Écouter le passage</button>
+      <span class="grow"></span><button class="quiet" type="button" data-sync-hear>▶ Vérifier le passage chanté</button>
     </div>
     <small class="note" data-sync-time></small>
   </div>
@@ -349,6 +367,7 @@ audio{width:100%;margin-top:18px}
 </dialog>
 <audio id="player" preload="none"></audio>
 
+<script src="/library-browser.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 let remoteLists = null; // listes du serveur en ligne (application de bureau)
@@ -473,11 +492,11 @@ async function poll() {
   fromYoutube = Boolean(state.url);
   if (state.status === 'working') { showWork(state.step); pollTimer = setTimeout(poll, 1000); return; }
   if (kind === 'trim' && state.error) {
-    kind = 'analyze'; view('done', 4); $('trim-status').textContent = state.error; $('trim-status').dataset.error = '1'; paintTrim(); return;
+    kind = 'analyze'; trim.saving = false; view('done', 4); $('trim-status').textContent = state.error; $('trim-status').dataset.error = '1'; paintTrim(); return;
   }
   if (kind === 'build' && state.status === 'ready' && state.error) {
-    const previous = sel;
-    kind = 'analyze'; await showLyrics(); sel = previous; paint(); $('dock-hint').textContent = state.error; return;
+    const previous = sel, offset = lyricTiming?.offset ?? 0;
+    kind = 'analyze'; await showLyrics(); sel = previous; setLyricsSync(offset); paint(); $('dock-hint').textContent = state.error; return;
   }
   if (state.status === 'error') { view('media', 0); $('title').value = state.title; $('artist').value = state.artist; $('media-status').textContent = state.error + (state.url ? ' Relancez avec le lien pour réessayer.' : ' Choisissez à nouveau le fichier pour réessayer.'); if (state.url) { $('yt-url').value = state.url; $('analyze').disabled = false; } return; }
   if (state.status === 'needs_lyrics') return showFind(false);
@@ -522,12 +541,22 @@ $('find-back').onclick = () => showLyrics();
 $('change-lyrics').onclick = () => showFind(true);
 
 /* 4. Le passage à deviner */
+let lyricTiming = null;
+function setLyricsSync(offset) {
+  $('lyrics-sync-box').hidden = !sel || !state.duration;
+  if ($('lyrics-sync-box').hidden) { lyricTiming = null; return; }
+  const timing = { id, duration: state.duration, from: state.words[sel[0]].t, to: state.words[sel[1]].e, word: state.words[sel[0]].x };
+  timing.offset = clampOffset(timing, offset);
+  lyricTiming = timing;
+  showSync($('lyrics-sync'), timing, paint);
+}
 async function showLyrics() {
   sel = null; anchor = null;
+  $('lyrics-sync-box').open = false; setLyricsSync(0);
   const box = $('lyrics'); box.replaceChildren();
   let p = null, line = null;
   state.words.forEach((w, i) => {
-    if (w.l !== line) { line = w.l; p = document.createElement('p'); const t = document.createElement('span'); t.className = 'time'; t.textContent = fmt(w.t); p.append(t); box.append(p); }
+    if (w.l !== line) { line = w.l; p = document.createElement('p'); const t = document.createElement('span'); t.className = 'time'; t.dataset.time = w.t; p.append(t); box.append(p); }
     const b = document.createElement('button'); b.type = 'button'; b.className = 'w' + (w.u ? ' u' : ''); b.textContent = w.x; b.dataset.i = i;
     if (w.u) b.title = 'Synchronisation incertaine sur ce mot';
     p.append(b);
@@ -545,23 +574,25 @@ async function showLyrics() {
 $('lyrics').onclick = (e) => {
   const b = e.target.closest('.w'); if (!b) return;
   const i = +b.dataset.i;
+  stopSourcePreview();
   if (anchor === null) { anchor = i; sel = [i, i]; }
   else { sel = [Math.min(anchor, i), Math.max(anchor, i)]; anchor = null; }
+  setLyricsSync(lyricTiming?.offset ?? state.clips?.find((c) => c.id === replaceId)?.lyricsOffset ?? 0);
   paint();
 };
 function paint() {
   document.querySelectorAll('#lyrics .w').forEach((b) => { const i = +b.dataset.i, on = sel && i >= sel[0] && i <= sel[1]; b.classList.toggle('sel', !!on); b.classList.toggle('a', !!on && i === sel[0]); b.classList.toggle('z', !!on && i === sel[1]); });
   const n = sel ? sel[1] - sel[0] + 1 : 0, tooLong = n > 25;
+  const off = lyricTiming?.offset ?? 0;
+  for (const t of $('lyrics').querySelectorAll('.time')) t.textContent = fmt(Math.max(0, Number(t.dataset.time) + off));
   $('dock-count').textContent = n ? n + (n > 1 ? ' mots à deviner' : ' mot à deviner') : 'Aucun passage choisi';
-  $('dock-hint').textContent = !n ? 'Cliquez sur le premier mot à deviner.' : tooLong ? 'Passage trop long : 25 mots au maximum.' : anchor !== null ? 'Cliquez sur le dernier mot du passage.' : 'À ' + fmt(state.words[sel[0]].t) + ' · cliquez sur un mot pour recommencer.';
+  $('dock-hint').textContent = !n ? 'Cliquez sur le premier mot à deviner.' : tooLong ? 'Passage trop long : 25 mots au maximum.' : anchor !== null ? 'Cliquez sur le dernier mot du passage.' : 'À ' + fmt1(state.words[sel[0]].t + off) + ' · cliquez sur un mot pour recommencer.';
   $('listen').disabled = !n; $('build').disabled = !n || tooLong;
 }
 $('listen').onclick = () => {
-  if (!player.paused) { player.pause(); return; }
-  if (!player.src.endsWith('/' + id + '/audio')) player.src = '/api/workshop/' + id + '/audio';
-  const from = Math.max(0, state.words[sel[0]].t - 5); stopAt = state.words[sel[1]].e + 1.5;
-  const start = () => { player.currentTime = from; player.play(); };
-  player.readyState >= 1 ? start() : player.addEventListener('loadedmetadata', start, { once: true });
+  if (!player.paused) { stopSourcePreview(); return; }
+  const off = lyricTiming?.offset ?? 0;
+  playSource(id, Math.max(0, state.words[sel[0]].t + off - 5), Math.min(state.duration, state.words[sel[1]].e + off + 1.5));
 };
 // arrêt précis (timeupdate n'arrive que tous les ~250 ms) : utile pour régler la fin de la voix au dixième
 let stopTimer = null;
@@ -579,7 +610,8 @@ player.ontimeupdate = () => {
   if (stopAt !== null && player.currentTime >= stopAt) player.pause();
   const t = player.currentTime;
   if (sourceCue) sourceCue.label.classList.toggle('sync-now', !player.paused && t >= sourceCue.from && t < sourceCue.to);
-  document.querySelectorAll('#lyrics .w').forEach((b) => { const w = state.words[+b.dataset.i]; b.classList.toggle('play', !player.paused && t >= w.t && t < w.e + 0.15); });
+  const lyricTime = t - (lyricTiming?.offset ?? 0);
+  if (!$('v-lyrics').hidden) document.querySelectorAll('#lyrics .w').forEach((b) => { const w = state.words[+b.dataset.i]; b.classList.toggle('play', !player.paused && lyricTime >= w.t && lyricTime < w.e + 0.15); });
 };
 player.onplay = () => { $('listen').textContent = '■ Arrêter'; };
 player.onpause = () => { sourceCue?.label.classList.remove('sync-now'); $('listen').textContent = '▶ Écouter'; document.querySelectorAll('.lib .play').forEach((x) => { x.textContent = '▶'; }); document.querySelectorAll('#lyrics .w.play').forEach((b) => b.classList.remove('play')); };
@@ -629,7 +661,7 @@ $('build').onclick = async () => {
       }
     }
     const keepBackground = Boolean(replaceId) && $('background-dialog').dataset.song !== id;
-    await post('/' + id + '/clip', { first: sel[0], last: sel[1], background, replace: replaceId || undefined, keepBackground, title: state.title, film: state.artist, listId: $('list').value || null, list: remoteLists?.find((l) => l.id === $('list').value) || undefined });
+    await post('/' + id + '/clip', { first: sel[0], last: sel[1], lyricsOffset: lyricTiming?.offset ?? 0, background, replace: replaceId || undefined, keepBackground, title: state.title, film: state.artist, listId: $('list').value || null, list: remoteLists?.find((l) => l.id === $('list').value) || undefined });
     kind = 'build'; $('v-work').hidden = true; showWork('build'); poll();
   } catch (error) { $('dock-hint').textContent = error.message; build.disabled = false; }
 };
@@ -670,8 +702,13 @@ $('hear-round').onclick = () => {
 function paintTransport() {
   const clip = !doneAudio.paused, song = !player.paused && !$('v-done').hidden;
   $('hear-round').textContent = clip || song ? '■ Arrêter' : '▶ Écouter la manche';
-  $('tc-part').textContent = clip ? 'La manche' : song ? 'Réglage en écoute' : 'Comme en jeu';
-  $('tc-hint').textContent = song ? 'Vos réglages, pas encore appliqués : la voix s’arrête aux ciseaux.' : 'La voix s’arrête aux ciseaux, la musique continue seule.';
+  if (song && originalPreview === id) {
+    $('tc-part').textContent = 'Chanson originale';
+    $('tc-hint').textContent = 'La voix reste audible pour recaler les paroles.';
+  } else {
+    $('tc-part').textContent = clip ? 'La manche' : song ? 'Réglage en écoute' : 'Comme en jeu';
+    $('tc-hint').textContent = 'La voix s’arrête aux ciseaux, la musique continue seule.';
+  }
 }
 for (const media of [doneAudio, player]) for (const ev of ['play', 'pause']) media.addEventListener(ev, paintTransport);
 $('another-gap').onclick = () => { stopSourcePreview(); doneAudio.pause(); showLyrics(); };
@@ -683,20 +720,25 @@ const fmt1 = (s) => { const ds = Math.round(s * 10); return fmt(ds / 10) + ',' +
 const signedSeconds = (s) => (s > 0.005 ? '+' : s < -0.005 ? '−' : '') + Math.abs(s).toFixed(1).replace('.', ',') + ' s';
 function makeTiming(media, clip, first, last, start, end) {
   const offset0 = clip.lyricsOffset ?? 0;
-  return { id: media.id, duration: media.duration, from: media.words[first].t, to: media.words[last].e,
+  return { id: media.id, duration: media.duration, from: media.words[first].t, to: media.words[last].e, word: media.words[first].x,
     offset: offset0, offset0, cut0: start + clip.cutAt, cutAdjustment: 0, start, end };
 }
 function cutAtSource(t) {
   return clamp(t.cut0 + t.offset - t.offset0 + t.cutAdjustment, 0, Math.min(t.duration, t.to + t.offset));
 }
+function nudgeCut(t, delta) {
+  const baseline = t.cut0 + t.offset - t.offset0;
+  const next = Math.round((cutAtSource(t) + delta) * 10) / 10;
+  t.cutAdjustment = clamp(next, 0, Math.min(t.duration, t.to + t.offset)) - baseline;
+}
 function extractBounds(t) {
   const cut = cutAtSource(t);
   const latestStart = Math.max(0, Math.min(cut - 2, t.from + t.offset));
   const earliestEnd = Math.min(t.duration, Math.max(cut + 1, t.to + t.offset + 0.5));
-  const end = t.manualEnd ?? t.end + t.offset - t.offset0;
-  return { cut, latestStart, earliestEnd, start: Math.min(t.start, latestStart), end: clamp(end, earliestEnd, t.duration) };
+  const shift = t.offset - t.offset0;
+  return { cut, latestStart, earliestEnd, start: clamp(t.start + shift, 0, latestStart), end: clamp(t.end + shift, earliestEnd, t.duration) };
 }
-let pendingSourcePreview, sourceCue;
+let pendingSourcePreview, pendingVoiceSwap, sourceCue, originalPreview;
 // après les ciseaux, on n'entend que la musique, comme en jeu : un second lecteur joue l'instrumental
 // et prend le relais à la coupure (la chanson d'origine continue, muette, pour la tête de lecture)
 const instrPlayer = new Audio();
@@ -709,8 +751,11 @@ player.addEventListener('pause', () => { clearTimeout(swapTimer); instrPlayer.pa
 function stopSourcePreview() {
   if (pendingSourcePreview) player.removeEventListener('loadedmetadata', pendingSourcePreview);
   pendingSourcePreview = null;
+  if (pendingVoiceSwap) player.removeEventListener('playing', pendingVoiceSwap);
+  pendingVoiceSwap = null;
   sourceCue?.label.classList.remove('sync-now');
   sourceCue = null;
+  originalPreview = null;
   clearTimeout(swapTimer); instrPlayer.pause(); player.volume = 1;
   player.pause();
 }
@@ -721,6 +766,7 @@ function playSource(mediaId, from, until, cue = null, voiceUntil = null) {
   stopAt = until;
   sourceCue = cue;
   const silence = Number.isFinite(voiceUntil) && voiceUntil < until;
+  originalPreview = silence ? null : mediaId;
   if (silence) loadInstrumental(mediaId);
   const toInstrumental = () => {
     if (instrPlayer.error) return;
@@ -731,52 +777,86 @@ function playSource(mediaId, from, until, cue = null, voiceUntil = null) {
     pendingSourcePreview = null; player.currentTime = from;
     if (silence && !instrPlayer.error) {
       instrPlayer.currentTime = Math.max(from, voiceUntil);
-      if (from >= voiceUntil - 0.01) player.addEventListener('playing', toInstrumental, { once: true });
+      if (from >= voiceUntil - 0.01) pendingVoiceSwap = toInstrumental;
       else {
         const wait = () => {
           if (player.paused) return;
           const left = voiceUntil - player.currentTime;
           if (left <= 0.01) toInstrumental(); else swapTimer = setTimeout(wait, Math.min(200, Math.max(5, left * 1000 - 15)));
         };
-        player.addEventListener('playing', wait, { once: true });
+        pendingVoiceSwap = wait;
       }
+      player.addEventListener('playing', pendingVoiceSwap, { once: true });
     }
     player.play().catch(() => {});
   };
   if (player.readyState >= 1) go();
   else { pendingSourcePreview = go; player.addEventListener('loadedmetadata', go, { once: true }); player.load(); }
 }
+function offsetRange(timing) {
+  return [Math.min(0, Math.ceil(-timing.from * 10) / 10), Math.max(0, Math.floor((timing.duration - timing.to) * 10) / 10)];
+}
+function clampOffset(timing, value) {
+  const [min, max] = offsetRange(timing);
+  return clamp(Math.round(value * 10) / 10, min, max);
+}
 function showSync(container, timing, onChange) {
   container.replaceChildren($('sync-template').content.cloneNode(true));
-  const slider = container.querySelector('input');
+  const position = container.querySelector('input');
+  const placeWord = container.querySelector('[data-sync-anchor]');
+  const play = container.querySelector('[data-sync-play]');
   const buttons = [...container.querySelectorAll('[data-nudge]')];
   const reset = container.querySelector('[data-sync-reset]');
   const label = container.querySelector('[data-sync-time]');
-  const min = Math.min(0, Math.max(-30, Math.ceil(-timing.from * 10) / 10));
-  const max = Math.max(0, Math.min(30, Math.floor((timing.duration - timing.to) * 10) / 10));
-  slider.min = min; slider.max = max;
+  const [min, max] = offsetRange(timing);
+  const isListening = () => originalPreview === timing.id && stopAt === timing.duration && !player.paused;
+  const time = () => Math.round(player.currentTime * 10) / 10;
+  position.max = timing.duration;
+  placeWord.textContent = 'Placer « ' + timing.word + ' » ici';
+  let previous, positionEdited = false;
   const paint = () => {
-    const value = signedSeconds(timing.offset);
-    slider.value = timing.offset; slider.setAttribute('aria-valuetext', value);
-    container.querySelector('output').textContent = value;
+    if (previous !== timing.offset) {
+      position.value = Math.round((timing.from + timing.offset) * 10) / 10;
+      previous = timing.offset;
+      positionEdited = false;
+    }
+    const listening = isListening();
+    play.textContent = listening ? '■ Pause' : '▶ Écouter depuis cette position';
+    placeWord.disabled = (!listening || positionEdited) && (!Number.isFinite(position.valueAsNumber) || position.valueAsNumber < 0 || position.valueAsNumber > timing.duration);
+    container.querySelector('output').textContent = signedSeconds(timing.offset);
     label.textContent = 'Passage à deviner à ' + fmt1(timing.from + timing.offset);
     for (const b of buttons) b.disabled = +b.dataset.nudge < 0 ? timing.offset <= min : timing.offset >= max;
     reset.disabled = timing.offset === 0;
   };
   const set = (value) => {
     stopSourcePreview();
-    timing.offset = clamp(Math.round(value * 10) / 10, min, max);
-    paint(); onChange();
+    timing.offset = clampOffset(timing, value);
+    previous = undefined; paint(); onChange();
   };
-  slider.oninput = () => set(+slider.value);
+  position.oninput = () => { positionEdited = true; paint(); };
+  position.onkeydown = (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); placeWord.click(); }
+  };
+  placeWord.onclick = () => set((isListening() && !positionEdited ? time() : position.valueAsNumber) - timing.from);
+  play.onclick = () => {
+    if (isListening()) { if (!positionEdited) position.value = time(); stopSourcePreview(); paint(); return; }
+    if (Number.isFinite(position.valueAsNumber)) {
+      positionEdited = false;
+      playSource(timing.id, clamp(position.valueAsNumber, 0, Math.max(0, timing.duration - 0.1)), timing.duration);
+    }
+  };
   for (const b of buttons) b.onclick = () => set(timing.offset + +b.dataset.nudge);
   reset.onclick = () => set(0);
   container.querySelector('[data-sync-hear]').onclick = () => {
     const from = timing.from + timing.offset, to = timing.to + timing.offset;
     playSource(timing.id, Math.max(0, from - 3), Math.min(timing.duration, to + 2), { label, from, to });
   };
+  container.syncPaint = paint;
   paint();
 }
+for (const event of ['play', 'pause']) player.addEventListener(event, () => {
+  for (const name of ['lyrics-sync', 'trim-sync', 'edit-sync']) $(name).syncPaint?.();
+});
 /* Table de montage : la chanson entière en aperçu, l'extrait en gros plan sur quatre pistes */
 const mt = { v0: 0, v1: 1, wave: null };
 const waves = {};
@@ -813,7 +893,6 @@ function drawWave(canvas, wave, t0, t1, hi0, hi1, on, off) {
     g.fillStyle = t >= hi0 && t <= hi1 ? cOn : cOff; g.fillRect(x, mid - y, 1, y * 2);
   }
 }
-const offsetRange = (t) => [Math.min(0, Math.max(-30, Math.ceil(-t.from * 10) / 10)), Math.max(0, Math.min(30, Math.floor((t.duration - t.to) * 10) / 10))];
 // gros plan : l'extrait et le passage à deviner, avec un peu de marge
 // « Autour du passage » : une quinzaine de secondes autour de la coupure, assez pour lire les paroles
 mt.mode = (() => { try { return localStorage.getItem('atelier-view') === 'all' ? 'all' : 'gap'; } catch { return 'gap'; } })();
@@ -838,7 +917,8 @@ function showTrim(clip) {
   const ok = clip && Number.isFinite(clip.sourceStart) && Number.isFinite(clip.sourceEnd) && state.words?.[clip.first] && state.words?.[clip.last] && state.duration;
   $('trim').hidden = !ok;
   if (!ok) return;
-  Object.assign(trim, makeTiming(state, clip, clip.first, clip.last, clip.sourceStart, clip.sourceEnd), { clip, manualEnd: null });
+  Object.assign(trim, makeTiming(state, clip, clip.first, clip.last, clip.sourceStart, clip.sourceEnd), { clip, saving: false });
+  showSync($('trim-sync'), trim, () => { fitView(); paintTrim(); });
   $('trim-total').textContent = fmt(state.duration);
   $('trim-status').textContent = ''; delete $('trim-status').dataset.error;
   $('tc').textContent = fmt1(clip.sourceStart);
@@ -890,24 +970,27 @@ function paintTrim() {
   $('trim-start').textContent = fmt1(start); $('trim-end').textContent = fmt1(end); $('trim-cutv').textContent = fmt1(cut);
   $('cut-shift').textContent = Math.abs(trim.cutAdjustment) > 0.005 ? signedSeconds(trim.cutAdjustment) : '';
   $('trim-len').textContent = Math.round(end - start) + ' s';
-  $('mt-off').textContent = $('mt-off-label').textContent = signedSeconds(off);
+  $('mt-off-label').textContent = signedSeconds(off);
+  const [min, max] = offsetRange(trim);
+  $('mt-lyr').setAttribute('aria-valuemin', min); $('mt-lyr').setAttribute('aria-valuemax', max);
+  $('mt-lyr').setAttribute('aria-valuenow', off);
   $('mt-lyr').setAttribute('aria-valuetext', signedSeconds(off));
-  $('mt-off-zero').disabled = off === 0;
-  const changed = trim.offset !== trim.offset0 || Math.abs(trim.start - trim.clip.sourceStart) > 0.05 || Math.abs((trim.manualEnd ?? trim.end) - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
-  $('trim-apply').disabled = !changed;
+  $('trim-sync').syncPaint();
+  const changed = trim.offset !== trim.offset0 || Math.abs(start - trim.clip.sourceStart) > 0.05 || Math.abs(end - trim.clip.sourceEnd) > 0.05 || Math.abs(cut - trim.cut0) > 0.05;
+  $('trim-apply').disabled = trim.saving || !changed;
   if (!$('trim-status').dataset.error) $('trim-status').textContent = changed ? 'Réglages modifiés : appliquez-les pour refabriquer l’extrait.' : '';
   tickHead();
 }
 function setTrim(which, t) {
   t = Math.round(t * 10) / 10;
   const { latestStart, earliestEnd } = extractBounds(trim);
-  if (which === 0) trim.start = clamp(t, 0, latestStart);
-  else trim.manualEnd = clamp(t, earliestEnd, trim.duration);
+  const shift = trim.offset - trim.offset0;
+  if (which === 0) trim.start = clamp(t, 0, latestStart) - shift;
+  else trim.end = clamp(t, earliestEnd, trim.duration) - shift;
   paintTrim();
 }
 function setOffset(value) {
-  const [min, max] = offsetRange(trim);
-  trim.offset = clamp(Math.round(value * 10) / 10, min, max);
+  trim.offset = clampOffset(trim, value);
   paintTrim();
 }
 function nudge(k, d) {
@@ -928,7 +1011,10 @@ function hearCut() {
 }
 function hearLyrics() {
   const from = trim.from + trim.offset, to = trim.to + trim.offset;
-  playSource(id, Math.max(0, from - 3), Math.min(trim.duration, to + 2), { label: $('mt-gapcol'), from, to }, cutAtSource(trim));
+  playSource(id, Math.max(0, from - 3), Math.min(trim.duration, to + 2), { label: $('mt-gapcol'), from, to });
+}
+function hearAt(t) {
+  playSource(id, Math.min(t, Math.max(0, trim.duration - 0.1)), trim.duration);
 }
 const hearOf = (k) => k === 'start' ? hearTrim(0) : k === 'end' ? hearTrim(1) : k === 'cut' ? hearCut() : hearLyrics();
 // glisser une poignée, les ciseaux ou la piste des paroles ; un simple clic écoute depuis cet endroit
@@ -949,7 +1035,9 @@ $('mt-area').addEventListener('pointerdown', (e) => {
   const up = (ev) => {
     area.removeEventListener('pointermove', move); area.removeEventListener('pointerup', up); area.removeEventListener('pointercancel', up);
     $('mt-lyr').classList.remove('drag');
-    if (!moved) { if (k !== 'seek' && k !== 'offset') hearOf(k); return; }
+    if (ev.type === 'pointercancel') { fitView(); paintTrim(); return; }
+    if (k === 'seek') { hearAt(vt(ev.clientX)); return; }
+    if (!moved) { if (k !== 'offset') hearOf(k); return; }
     fitView(); paintTrim(); hearOf(k);
   };
   area.addEventListener('pointermove', move); area.addEventListener('pointerup', up); area.addEventListener('pointercancel', up);
@@ -966,18 +1054,21 @@ for (const grip of document.querySelectorAll('#mt-area [data-k]')) {
 for (const b of document.querySelectorAll('.mt-insp [data-k]')) b.onclick = (e) => {
   nudge(b.dataset.k, +b.dataset.d * (e.shiftKey ? 10 : 1)); fitView(); paintTrim(); hearOf(b.dataset.k);
 };
-$('mt-off-zero').onclick = () => { setOffset(0); fitView(); paintTrim(); hearLyrics(); };
 // la vue d'ensemble : grands déplacements du début et de la fin, clic pour écouter
 $('mt-over').addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   const over = $('mt-over'), r = over.getBoundingClientRect(), at = (x) => clamp((x - r.left) / r.width, 0, 1) * trim.duration;
   const which = e.target.id === 'trim-h0o' ? 0 : e.target.id === 'trim-h1o' ? 1 : null;
   e.preventDefault();
-  if (which === null) return;
+  if (which === null) { hearAt(at(e.clientX)); return; }
   over.setPointerCapture(e.pointerId);
   const move = (ev) => { setTrim(which, at(ev.clientX)); fitView(); paintTrim(); };
-  const up = () => { over.removeEventListener('pointermove', move); over.removeEventListener('pointerup', up); hearTrim(which); };
+  const up = (ev) => {
+    over.removeEventListener('pointermove', move); over.removeEventListener('pointerup', up); over.removeEventListener('pointercancel', up);
+    if (ev.type !== 'pointercancel') hearTrim(which);
+  };
   over.addEventListener('pointermove', move); over.addEventListener('pointerup', up);
+  over.addEventListener('pointercancel', up);
 });
 // tête de lecture : la chanson d'origine, ou l'extrait fabriqué recalé sur la chanson
 let headRaf = 0;
@@ -1001,14 +1092,16 @@ addEventListener('resize', () => { if (!$('v-done').hidden) paintTrim(); });
 $('trim-reset').onclick = () => applyTrim(true);
 $('trim-apply').onclick = () => applyTrim(false);
 async function applyTrim(auto) {
+  if (trim.saving) return;
   const c = trim.clip;
   const { start, end, cut } = extractBounds(trim);
+  trim.saving = true;
   $('trim-apply').disabled = true; $('trim-reset').disabled = true; stopSourcePreview(); doneAudio.pause();
   try {
     await post('/' + id + '/clip', { first: c.first, last: c.last, replace: c.id, keepBackground: true, title: state.title, film: state.artist, listId: null,
       lyricsOffset: trim.offset, ...(auto ? {} : { start, end, cut }) });
     kind = 'trim'; $('v-work').hidden = true; showWork('build'); poll();
-  } catch (error) { $('trim-status').textContent = error.message; $('trim-status').dataset.error = '1'; paintTrim(); }
+  } catch (error) { trim.saving = false; $('trim-status').textContent = error.message; $('trim-status').dataset.error = '1'; paintTrim(); }
   finally { $('trim-reset').disabled = false; }
 }
 
@@ -1037,10 +1130,9 @@ $('publish-all').onclick = () => publish($('publish-all'), $('publish-all-status
 $('publish-one').onclick = () => publish($('publish-one'), $('publish-one-status'), [state.clips[state.clips.length - 1].id]);
 
 /* Bibliothèque : les extraits de ce PC, comparés à ceux du serveur en ligne */
-let lib = null, libFilter = 'all', editing = null;
+let lib = null, libPage = 0, editing = null;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const bgLabel = (b) => !b ? 'Image de la série' : b.type === 'youtube' ? 'Vidéo YouTube' : b.type === 'video' ? 'Vidéo' : 'Image';
-const FILTERS = [['all', 'Toutes'], ['todo', 'À envoyer'], ['online', 'En ligne'], ['remote', 'Seulement en ligne']];
 
 async function showLibrary(note) {
   view('library', -1);
@@ -1054,6 +1146,19 @@ async function showLibrary(note) {
       catch (error) { offline = error.message; }
     }
     lib = { local, online, offline, publish: cfg.publish };
+    const lists = new Map([...(online?.lists || []), ...local.lists].map((l) => [l.id, l.name]));
+    lib.lists = lists;
+    lib.remoteById = new Map((online?.clips || []).map((c) => [c.id, c]));
+    const playlistFilter = $('lib-list');
+    const previous = playlistFilter.value;
+    playlistFilter.replaceChildren(new Option('Toutes les playlists', ''),
+      ...[...lists].sort((a, b) => libraryCollator.compare(a[1], b[1])).map(([id, name]) => new Option(name, id)));
+    if (lists.has(previous)) playlistFilter.value = previous;
+    for (const option of $('lib-filter').options) {
+      if (['all', 'draft'].includes(option.value)) continue;
+      option.hidden = !online;
+    }
+    if (!online && $('lib-filter').selectedOptions[0].hidden) $('lib-filter').value = 'all';
     renderLibrary();
     if (note) $('lib-status').textContent = note + ' ' + $('lib-status').textContent;
   } catch (error) { $('lib-status').textContent = error.message; }
@@ -1061,40 +1166,51 @@ async function showLibrary(note) {
 // état d'un extrait du PC par rapport au serveur en ligne
 function syncOf(c) {
   if (!lib.online) return null;
-  const r = lib.online.clips.find((x) => x.id === c.id);
+  const r = lib.remoteById.get(c.id);
   return !r ? 'todo' : (r.updatedAt || null) === (c.updatedAt || null) ? 'online' : 'changed';
 }
 function renderLibrary() {
   const { local, online } = lib;
   $('lib-lead').textContent = online ? 'Les chansons de ce PC, et ce qui est déjà en ligne sur ' + new URL(online.target).host + '.'
     : lib.offline ? 'Les chansons de ce PC. ' + lib.offline : 'Les chansons de ce serveur.';
-  $('lib-filters').replaceChildren(...(online ? FILTERS : []).map(([k, label]) => {
-    const b = el('button', 'chip', label); b.type = 'button'; b.setAttribute('aria-pressed', String(libFilter === k));
-    b.onclick = () => { libFilter = k; renderLibrary(); }; return b;
-  }));
-  const q = $('lib-q').value.trim().toLowerCase();
-  const match = (c) => !q || [c.title, c.film, c.answer].some((s) => String(s || '').toLowerCase().includes(q));
-  const listName = (lid) => [...local.lists, ...(online?.lists || [])].find((l) => l.id === lid)?.name;
-  const rows = [];
-  const todo = [];
-  for (const c of local.clips) {
-    const s = syncOf(c);
-    if (s && s !== 'online') todo.push(c.id);
-    if (!match(c) || (libFilter === 'todo' && !(s === 'todo' || s === 'changed')) || (libFilter === 'online' && s !== 'online') || libFilter === 'remote') continue;
-    rows.push(clipRow(c, s, listName));
-  }
-  const remoteOnly = online ? online.clips.filter((r) => !local.clips.some((c) => c.id === r.id)) : [];
-  if (libFilter === 'all' || libFilter === 'remote') for (const r of remoteOnly.filter(match)) rows.push(remoteRow(r, listName));
-  $('lib').replaceChildren(...rows);
-  const n = local.clips.length;
-  $('lib-status').textContent = (n ? n + (n > 1 ? ' extraits sur ce PC' : ' extrait sur ce PC') : 'Aucun extrait sur ce PC pour l’instant.')
-    + (online ? ' · ' + (online.clips.length - remoteOnly.length) + ' en ligne · ' + todo.length + ' à envoyer' + (remoteOnly.length ? ' · ' + remoteOnly.length + ' seulement en ligne' : '') : '')
-    + (!rows.length && n ? ' · aucun résultat pour ce filtre.' : '');
+  const filter = $('lib-filter').value;
+  const drafts = filter === 'draft';
+  const playlist = $('lib-list').value;
+  const sort = $('lib-sort').value;
+  const query = $('lib-q').value;
+  const listName = (id) => lib.lists.get(id);
+  $('lib-list').disabled = drafts;
+  const localIds = new Set(local.clips.map((c) => c.id));
+  const remoteOnly = (online?.clips || []).filter((c) => !localIds.has(c.id));
+  const localRows = local.clips.map((song) => ({ song, status: syncOf(song) }));
+  const todo = localRows.filter(({ status }) => status === 'todo' || status === 'changed');
+  const entries = drafts ? local.drafts.map((song) => ({ song, status: 'draft' })) :
+    [...localRows, ...remoteOnly.map((song) => ({ song, status: 'remote' }))];
+  const artist = (song) => song.film || song.artist || '';
+  const timestamp = (song) => song.updatedAt || 0;
+  const results = entries.filter(({ song, status }) =>
+    (filter === 'all' || status === filter || (filter === 'todo' && status === 'changed')) &&
+    (drafts || !playlist || song.lists?.includes(playlist)) &&
+    libraryMatches(query, song.title, artist(song), song.answer)
+  ).sort((a, b) => {
+    const primary = sort === 'film' ? libraryCollator.compare(artist(a.song), artist(b.song)) :
+      sort === 'recent' ? timestamp(b.song) - timestamp(a.song) : 0;
+    return primary || libraryCollator.compare(a.song.title, b.song.title) ||
+      libraryCollator.compare(artist(a.song), artist(b.song));
+  });
+  const page = libraryPage('lib', results, libPage, 12);
+  libPage = page.current;
+  $('lib').replaceChildren(...page.items.map(({ song, status }) =>
+    status === 'draft' ? draftRow(song) : status === 'remote' ? remoteRow(song, listName) : clipRow(song, status, listName)));
+  $('lib-status').textContent = online
+    ? local.clips.length + ' sur ce PC · ' + online.clips.length + ' en ligne · ' + todo.length + ' à envoyer · ' + local.drafts.length + ' en cours'
+    : local.clips.length + ' extraits · ' + local.drafts.length + ' en cours';
+  const noun = drafts ? 'brouillon' : 'extrait';
+  $('lib-results').textContent = results.length ? results.length + ' ' + noun + (results.length > 1 ? 's' : '') : 'Aucun ' + noun + ' trouvé.';
   $('lib-sync').hidden = !online || !todo.length;
-  $('lib-sync').dataset.ids = JSON.stringify(todo);
-  $('drafts-box').hidden = !local.drafts.length;
-  $('drafts').replaceChildren(...local.drafts.map(draftRow));
+  $('lib-sync').dataset.ids = JSON.stringify(todo.map(({ song }) => song.id));
 }
+
 function playButton(src, from, stop) {
   const b = el('button', 'quiet play', '▶'); b.type = 'button'; b.setAttribute('aria-label', 'Écouter');
   b.onclick = () => {
@@ -1289,7 +1405,11 @@ $('edit-form').onsubmit = async (e) => {
   } catch (error) { $('edit-status').textContent = error.message; }
   save.disabled = false;
 };
-$('lib-q').oninput = () => lib && renderLibrary();
+function resetLibraryPage() { libPage = 0; if (lib) renderLibrary(); }
+$('lib-q').oninput = resetLibraryPage;
+for (const id of ['lib-list', 'lib-filter', 'lib-sort']) $(id).onchange = resetLibraryPage;
+$('lib-prev').onclick = () => { libPage--; renderLibrary(); };
+$('lib-next').onclick = () => { libPage++; renderLibrary(); };
 $('lib-sync').onclick = async () => { await publish($('lib-sync'), $('lib-status'), JSON.parse($('lib-sync').dataset.ids || '[]')); showLibrary($('lib-status').textContent); };
 
 window.onhashchange = () => location.reload();

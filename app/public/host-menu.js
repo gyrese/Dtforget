@@ -2,6 +2,7 @@ let library = { songs: [], lists: [] };
 let selectedList = null;
 let editingId = null;
 let selectedSongs = new Set();
+let pickerPage = 0;
 let creatingRoom = false;
 let draftCover = "";
 let coverRevision = 0;
@@ -78,23 +79,38 @@ function openEditor(id) {
   library.lists.forEach(l => {
     const b = node('button', 'quiet', l.name + ' · ' + l.songIds.length); b.setAttribute('aria-current', String(l.id === id)); b.onclick = () => openEditor(l.id); $('list-nav').append(b);
   });
-  renderPicker(); show('s-library');
+  resetPickerPage(); show('s-library');
+}
+function matchingSongs() {
+  const query = $('song-search').value;
+  const selectedOnly = $('selected-only').checked;
+  return library.songs.filter((song) =>
+    (!selectedOnly || selectedSongs.has(song.id)) && libraryMatches(query, song.title, song.film));
 }
 function renderPicker() {
-  const query = $('song-search').value.toLocaleLowerCase('fr');
-  $('song-picker').replaceChildren();
-  const songs = library.songs.filter(s => (s.title + ' ' + s.film).toLocaleLowerCase('fr').includes(query) && (!$('selected-only').checked || selectedSongs.has(s.id)));
-  songs.forEach(song => {
+  const songs = matchingSongs().sort((a, b) => libraryCollator.compare(a.title, b.title) || libraryCollator.compare(a.film, b.film));
+  const page = libraryPage('song', songs, pickerPage, 12);
+  pickerPage = page.current;
+  const picker = $('song-picker');
+  picker.replaceChildren();
+  picker.scrollTop = 0;
+  $('song-results').textContent = songs.length ? songs.length + (songs.length === 1 ? ' chanson' : ' chansons') : '';
+  $('select-visible').disabled = !songs.some((song) => !selectedSongs.has(song.id));
+  page.items.forEach(song => {
     const label = node('label', 'song-option', '');
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = selectedSongs.has(song.id);
-    input.onchange = () => { input.checked ? selectedSongs.add(song.id) : selectedSongs.delete(song.id); updateCount(); if ($('selected-only').checked) renderPicker(); };
+    input.onchange = () => { input.checked ? selectedSongs.add(song.id) : selectedSongs.delete(song.id); updateCount(); if ($('selected-only').checked) renderPicker();
+      else $('select-visible').disabled = !songs.some((song) => !selectedSongs.has(song.id)); };
     const text = node('span', '', song.title); text.append(node('small', '', song.film)); const memberships = library.lists.filter(l => l.songIds.includes(song.id)); if (memberships.length) text.append(node('small', 'membership-tags', memberships.map(l => l.name).join(' · ')));  label.append(input, text); $('song-picker').append(label);
   });
   if (!songs.length) $('song-picker').append(node('p', 'empty', 'Aucune chanson trouvée.'));
   updateCount();
 }
 function updateCount() { $('selected-count').textContent = selectedSongs.size + ' sélectionnée' + (selectedSongs.size > 1 ? 's' : ''); }
-$('song-search').oninput = renderPicker;
+function resetPickerPage() { pickerPage = 0; renderPicker(); }
+$('song-search').oninput = resetPickerPage;
+$('song-prev').onclick = () => { pickerPage--; renderPicker(); };
+$('song-next').onclick = () => { pickerPage++; renderPicker(); };
 $('manage').onclick = () => openEditor(library.lists[0]?.id || null);
 $('new-list').onclick = () => { openEditor(null); $('list-name').focus(); };
 $('edit-list').onclick = () => openEditor(selectedList.id);
@@ -260,8 +276,8 @@ function selectUniverse(id) {
 }
 $('explore-universe').onclick = () => openDetail(selectedList.id);
 $('edit-featured').onclick = () => openEditor(selectedList.id);
-$('selected-only').onchange = renderPicker;
-$('select-visible').onclick = () => { const query = $('song-search').value.toLocaleLowerCase('fr'); library.songs.filter(s => (s.title+' '+s.film).toLocaleLowerCase('fr').includes(query)).forEach(s => selectedSongs.add(s.id)); renderPicker(); };
+$('selected-only').onchange = resetPickerPage;
+$('select-visible').onclick = () => { matchingSongs().forEach((song) => selectedSongs.add(song.id)); renderPicker(); };
 $('clear-selection').onclick = () => { selectedSongs.clear(); renderPicker(); };
 $('fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { notify('Le plein écran est indisponible dans ce navigateur.'); } };
 document.addEventListener('fullscreenchange', () => $('fullscreen').setAttribute('aria-label',document.fullscreenElement ? 'Quitter le plein écran' : 'Passer en plein écran'));

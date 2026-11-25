@@ -19,7 +19,11 @@ export function createLibrary(content, file) {
   };
   if (!existsSync(file)) persist(lists);
   return {
-    get: () => { const songs = allSongs(); return { songs, lists: lists.map(l => ({ ...l, songIds: l.songIds.filter(id => songs.some(s => s.id === id)) })) }; },
+    get: () => {
+      const songs = allSongs();
+      const liveIds = new Set(songs.map((song) => song.id));
+      return { songs, lists: lists.map((list) => ({ ...list, songIds: list.songIds.filter((id) => liveIds.has(id)) })) };
+    },
     addSong(listId, songId) {
       if (!lists.some(l => l.id === listId)) throw new Error('Cette liste n’existe plus.');
       persist(lists.map(l => l.id === listId && !l.songIds.includes(songId) ? { ...l, songIds: [...l.songIds, songId] } : l));

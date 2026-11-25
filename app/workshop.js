@@ -182,14 +182,14 @@ export function createWorkshop({ dataDir, content, contentFile, library, runner,
     }
     // début, fin de l'extrait et coupure de la voix déplacés à la main sur l'aperçu (secondes dans la chanson)
     const job = { cmd: 'build', first, last };
-    for (const k of ['start', 'end', 'cut']) if (Number.isFinite(req.body?.[k]) && req.body[k] >= 0 && req.body[k] < 3600) job[k] = req.body[k];
+    for (const k of ['start', 'end', 'cut']) if (Number.isFinite(req.body?.[k]) && req.body[k] >= 0 && req.body[k] <= (m.duration ?? 3600)) job[k] = req.body[k];
     if (req.body?.lyricsOffset !== undefined) {
-      if (!Number.isFinite(req.body.lyricsOffset) || Math.abs(req.body.lyricsOffset) > 30) return res.status(400).json({ error: 'Le décalage des paroles doit être compris entre −30 et +30 secondes.' });
+      if (!Number.isFinite(req.body.lyricsOffset) || Math.abs(req.body.lyricsOffset) > (m.duration ?? 3600)) return res.status(400).json({ error: 'Le passage à deviner doit rester dans la chanson.' });
       job.lyricsOffset = req.body.lyricsOffset;
     }
     run(id, job, () => {
       const built = readJson(join(dirOf(id), 'clip.json'));
-      if (job.lyricsOffset && built.lyricsOffset !== job.lyricsOffset) throw new Error('Mettez à jour le PC de traitement pour recaler les paroles.');
+      if (job.lyricsOffset !== undefined && (built.lyricsOffset ?? 0) !== job.lyricsOffset) throw new Error('Mettez à jour le PC de traitement pour recaler les paroles.');
       const clipId = `${id}__${first}-${last}`;
       copyFileSync(join(dirOf(id), 'clip.mp3'), join(clipsDir, clipId + '.mp3'));
       const clip = { id: clipId, film, title, audio: `/media/${clipId}.mp3?v=${Date.now()}`, cutAt: built.cutAt, revealAt: built.revealAt, revealDur: built.revealDur, bedEnd: built.bedEnd, sourceStart: built.sourceStart, sourceEnd: built.sourceEnd, lyricsOffset: built.lyricsOffset ?? 0, words: built.words, answer: built.answer, updatedAt: Date.now() };

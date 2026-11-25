@@ -219,3 +219,6 @@ h1[tabindex="-1"]:focus,[tabindex="-1"]:focus:not(button){outline:none}
 .stage-connection{left:16px;border:1px solid var(--spot)}
 .stage-audio{right:16px}
 .player-offline{opacity:.65}
+
+.song-pagination:not([hidden]){display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px}
+.song-pagination span{color:var(--muted);font-size:13px}

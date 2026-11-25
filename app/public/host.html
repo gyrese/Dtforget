@@ -73,7 +73,10 @@ html,body{margin:0;height:100%;background:#0b0420;color:#fff;font-family:Outfit,
   <section class="screen" id="s-library">
     <div class="top"><button class="quiet back-menu">← Les univers</button><button class="quiet" id="new-list">+ Nouvelle liste</button></div>
     <div class="editor-heading"><h1>Bibliothèque</h1></div>
-    <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · projecteur ambre</option><option value="rock">Rock · rouge scène</option><option value="mix">Mix · cases cyan</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Tout sélectionner</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><div id="song-picker"></div><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
+    <div class="editor-layout"><nav id="list-nav" aria-label="Listes musicales"></nav><form id="list-form"><div class="form-fields"><label>Nom de la liste<input id="list-name" required maxlength="40"></label><label>Ambiance<select id="list-theme"><option value="magic">Classiques · projecteur ambre</option><option value="rock">Rock · rouge scène</option><option value="mix">Mix · cases cyan</option></select></label><label class="wide">Description<input id="list-description" maxlength="140"></label></div><div class="cover-editor"><div><label for="list-cover">Image de la playlist</label><input id="list-cover" type="file" accept="image/jpeg,image/png,image/webp"><button class="quiet" id="remove-cover" type="button">Image par défaut</button><p id="cover-status" role="status"></p></div><img id="cover-preview" alt="Aperçu du fond de la playlist"></div><div class="song-tools"><label>Chansons enregistrées<input id="song-search" type="search" placeholder="Rechercher une chanson, un film…"></label><span id="selected-count"></span></div><div class="selection-actions"><button class="quiet" id="select-visible" type="button">Sélectionner les résultats</button><button class="quiet" id="clear-selection" type="button">Vider la sélection</button><label><input id="selected-only" type="checkbox"> Voir la sélection</label></div><p class="hint" id="song-results" role="status"></p><div id="song-picker"></div>
+      <nav class="song-pagination" id="song-pagination" aria-label="Pages des chansons" hidden>
+        <button class="quiet" id="song-prev" type="button">Précédent</button><span id="song-range" aria-live="polite"></span><button class="quiet" id="song-next" type="button">Suivant</button>
+      </nav><div class="save-row"><p id="save-status" role="status"></p><button class="btn" id="save-list" type="submit">Enregistrer</button></div></form></div>
   </section>
   <div class="notice" id="notice" role="status" hidden></div>
   <div class="stage-connection" id="stage-connection" role="status" hidden></div>
@@ -144,6 +147,44 @@ const socket = gameSocket();
 // l'atelier n'existe que sur le PC qui a la carte graphique, pas sur le serveur en ligne
 fetch('/api/config').then((r) => r.json()).then((c) => { $('add-media').hidden = !c.atelier; }).catch(() => {});
 const audio = $("audio");
+let stageAudioContext;
+let stageFade;
+
+function unlockStageAudio() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  if (!stageAudioContext) {
+    const context = new AudioContext();
+    const boost = context.createGain();
+    boost.gain.value = 4;
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -8;
+    compressor.knee.value = 8;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.18;
+
+    // Un plafond de sécurité pour les transitoires avant la réaction du compresseur.
+    const limiter = context.createWaveShaper();
+    limiter.curve = Float32Array.from({ length: 4097 }, (_, i) => {
+      const sample = i / 2048 - 1;
+      const level = Math.abs(sample);
+      return Math.sign(sample) * (level <= 0.75 ? level : 0.75 + 0.14 * Math.tanh((level - 0.75) / 0.14));
+    });
+    stageFade = context.createGain();
+    stageFade.gain.value = audio.volume;
+    context.createMediaElementSource(audio).connect(boost).connect(compressor)
+      .connect(limiter).connect(stageFade).connect(context.destination);
+    audio.volume = 1;
+    stageAudioContext = context;
+  }
+  if (stageAudioContext.state !== "running") return stageAudioContext.resume();
+}
+
+function setStageVolume(level) {
+  if (stageFade) stageFade.gain.value = level;
+  else audio.volume = level;
+}
 const background = createStageBackground($("stage-background"), audio);
 let clip = null;
 let roomCover = null;
@@ -154,7 +195,7 @@ let frame;
 function show(id) {
   const previous = document.querySelector(".screen.on")?.id;
   // la musique n'appartient qu'à la manche et à sa révélation : tout autre écran la coupe
-  if (id !== "s-play" && id !== "s-reveal") { audio.pause(); audio.volume = 1; }
+  if (id !== "s-play" && id !== "s-reveal") { audio.pause(); setStageVolume(1); }
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
   const join = $("live-join");
   join.hidden = !["s-intro", "s-play", "s-reveal"].includes(id);
@@ -196,6 +237,7 @@ socket.on("players:update", renderPlayers);
 $("start").onclick = () => {
   if (!socket.connected || $("start").disabled) return;
   // le clic autorise la lecture audio sur cette page
+  unlockStageAudio()?.catch(() => {});
   audio.play().catch(() => {});
   audio.pause();
   socket.emit("host:start");
@@ -221,7 +263,13 @@ socket.on("round:intro", renderIntro);
 
 function playStageAudio() {
   $("resume-audio").hidden = true;
-  audio.play().catch((error) => {
+  const resume = unlockStageAudio();
+  resume?.then(() => { $("resume-audio").hidden = true; }).catch(() => {});
+  audio.play().then(() => {
+    if (stageAudioContext && stageAudioContext.state !== "running" && socket.connected) {
+      $("resume-audio").hidden = false;
+    }
+  }).catch((error) => {
     if (error.name === "NotAllowedError" && socket.connected) $("resume-audio").hidden = false;
   });
 }
@@ -256,7 +304,7 @@ function renderClip(c) {
   renderLyrics();
   tick.active = null;
   $("bar-msg").textContent = "Répondez sur votre téléphone";
-  audio.volume = 1;
+  setStageVolume(1);
   audio.src = c.audio;
   audio.currentTime = Math.min(c.elapsed || 0, c.bedEnd);
   background.set(c, roomCover);
@@ -275,8 +323,8 @@ function bedStop() {
   if (!clip || !$("s-play").classList.contains("on") || audio.paused) return;
   const end = clip.bedEnd ?? (clip.revealAt != null ? clip.revealAt - 0.6 : Infinity);
   const left = end - audio.currentTime;
-  if (left <= 0) { audio.pause(); audio.volume = 1; return; }
-  audio.volume = Math.min(1, left / FADE);
+  if (left <= 0) { audio.pause(); setStageVolume(1); return; }
+  setStageVolume(Math.min(1, left / FADE));
 }
 audio.addEventListener("timeupdate", bedStop);
 
@@ -361,7 +409,7 @@ socket.on("answers:count", renderAnswerCount);
 function renderReveal({ answer, film, title, ranking, last, elapsed = 0, audio: source, revealAt = clip?.revealAt }) {
   $("next").textContent = last ? "Classement final →" : "Manche suivante →";
   audio.pause();
-  audio.volume = 1;
+  setStageVolume(1);
   // reprise 10 s avant le passage, avec les paroles, jusqu'à 10 s après
   $("resume-audio").hidden = true;
   if (source && audio.getAttribute("src") !== source) audio.src = source;
@@ -408,7 +456,7 @@ function renderFinal(list) {
 }
 socket.on("game:over", renderFinal);
 </script>
-<script src="/vendor/gsap/gsap.min.js"></script><script src="/vendor/animejs/anime.umd.min.js"></script><script src="/vendor/lottie/lottie_light.min.js"></script><script src="/host-menu.js"></script>
+<script src="/vendor/gsap/gsap.min.js"></script><script src="/vendor/animejs/anime.umd.min.js"></script><script src="/vendor/lottie/lottie_light.min.js"></script><script src="/library-browser.js"></script><script src="/host-menu.js"></script>
 <script src="/host-motion.js"></script>
 </body>
 </html>

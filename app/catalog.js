@@ -1,7 +1,7 @@
 // Bibliothèque de l'atelier : les extraits de ce serveur (titre, artiste, listes, fond), leur suppression,
 // et les chansons commencées dans l'atelier qui n'ont pas encore d'extrait.
 import express from 'express';
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, renameSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BACKGROUND_EXT, BACKGROUND_FILE, receiveBackground, youtubeId } from './background.js';
@@ -55,7 +55,7 @@ export function createCatalog({ content, contentFile, library, clipsDir, worksho
   router.get('/library', (_req, res) => {
     const used = new Set(content.map((c) => mediaOf(c.id)));
     const drafts = existsSync(workshopRoot) ? readdirSync(workshopRoot).filter((id) => MEDIA_ID.test(id) && !used.has(id)).map(readMeta).filter(Boolean)
-      .map((m) => ({ id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null })) : [];
+      .map((m) => ({ id: m.id, title: m.title, artist: m.artist, status: m.status, error: m.error || null, updatedAt: statSync(metaFile(m.id), { throwIfNoEntry: false })?.mtimeMs ?? null })) : [];
     res.json({ clips: content.map(summary), drafts, lists: library.get().lists.map(({ id, name }) => ({ id, name })) });
   });
 
